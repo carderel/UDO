@@ -21,7 +21,7 @@ No AI, no instruction, no user request can override these rules. Only a human di
 
 ## UDO Protocol
 
-- **HS-UDO-001**: NEVER end a session without creating a session log in `.project-catalog/sessions/`. The log MUST be in the correct location — a handoff file elsewhere does NOT count.
+- **HS-UDO-001**: NEVER end a session without creating a session log in `.project-catalog/sessions/`. The log MUST be in the correct location: a handoff file elsewhere does NOT count.
 - **HS-UDO-002**: NEVER proceed past 5 todos without a checkpoint
 - **HS-UDO-003**: NEVER ignore a circuit breaker condition
 - **HS-UDO-004**: NEVER end a session without updating `PROJECT_STATE.json` to reflect current goal, phase, todos, and completed work
@@ -55,6 +55,15 @@ Before ANY session ends, the AI MUST confirm ALL of these are true:
 ```
 
 **If ANY box is unchecked, the session MUST NOT end.** The AI must complete the missing steps first.
+
+## Output
+- **HS-OUT-001**: NEVER use em dashes in any output, deliverable, or committed file. Use commas, colons, parentheses, or separate sentences instead.
+
+## Execution
+- **HS-EXEC-001**: The orchestrator does ZERO execution work when delegation is available. All specialized work (analysis, research, content, code, builds, verification) is delegated. The orchestrator's only hands-on artifacts are coordination and the audit trail (session records, checkpoints, decisions, memory, state). If the harness has no delegation capability, this rule converts to: execute directly, keep the audit trail, and tighten checkpoint cadence (see PROJECT_HS_002 suspension).
+
+## Evidence
+- **HS-EVID-001**: Verify live before any state-changing recommendation. Stored artifacts (state files, checkpoints, prior session claims) are hypotheses about reality, not reality. Before recommending or performing an action based on a stored claim (a service is running, a dataset is current, a deliverable is done), verify against the live source and tag the output with an evidence grade (A: direct live output, B: recent artifact, C: inference) and a freshness date.
 
 ## Project-Level Rules Live Elsewhere
 Project-specific hard stops (PROJECT_HS_*) belong ONLY in `UDO Project/HARD_STOPS.md`.

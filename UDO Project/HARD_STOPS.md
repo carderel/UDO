@@ -49,62 +49,28 @@ The project inherits all framework hard stops from `UDO Framework/HARD_STOPS.md`
 
 ---
 
-> NOTE: rewritten in v2.2, see this file after Task 6.
+### PROJECT_HS_002: Delegation (v3, capability-aware)
 
-### PROJECT_HS_002: Mandatory Agent Delegation (Hardened v2.1)
+**Step 0, CAPABILITY CHECK (once per session, at orientation):**
+Read CAPABILITIES.json `delegation` block (written at session start per START_HERE).
+- `available: true` -> this rule is ACTIVE.
+- `available: false` -> this rule is SUSPENDED for the session. Log once in the transcript:
+  "PROJECT_HS_002 suspended: no subagent capability in [harness]. Specialized work executes in main context; checkpoint cadence tightened per HS-EXEC-001."
 
-**Description:** All specialized tasks MUST be delegated to appropriate agents. Agent MUST be invoked BEFORE execution begins.
+**When ACTIVE:**
+- Specialized work (analysis, research, planning, writing, code) MUST be delegated BEFORE execution begins.
+- Valid delegates, in preference order:
+  1. Installed project agents (`.agents/*.md`, synced to the harness)
+  2. Harness-native agents (e.g. Explore, general-purpose, Plan) for search/read/plan work
+  3. If neither fits: check the agents catalog (AGENTS_INDEX/CATALOG-AGENTS, see ORCHESTRATOR "Capability Discovery"), offer install; else create from `.templates/agent.md`
+- Meta-work needs no agent: orchestration, status updates, direct factual answers, audit-trail writes.
 
-**PRE-FLIGHT CHECK (before task execution):**
-- Classify task:
-  - Specialized work (data analysis, planning, writing, research) -> **REQUIRES AGENT**
-  - Meta-work (orchestration, status updates, direct Q&A responses) -> **NO AGENT**
-  - Unclear -> Treat as specialized, must create/invoke agent
-- If specialized and no agent exists: CREATE agent from `.templates/agent.md` FIRST, then invoke
-- Post intent to transcript: "Task classification: [type]. Agent required: [yes/no]. Agent: [name] if applicable."
+**POST-RESPONSE VERIFICATION (when ACTIVE), report exactly one:**
+- `Agents used: [name(s)] ([harness-native | .agents/])` plus one sentence of specific evidence
+- `No agents needed (meta-work: [reason])`
+- `VIOLATION: [task] executed without delegation` -> HALT before next prompt, escalate to user.
 
-**ENFORCEMENT (during task execution):**
-- If specialized work: Agent MUST be invoked and MUST execute the task
-- Orchestrator coordinates, does NOT execute
-- If execution begins without agent invocation on specialized work -> **VIOLATION**
-
-**POST-RESPONSE VERIFICATION (mandatory):**
-- Report in response ONLY ONE OF:
-  - ✅ `Agents used: [AgentName] (Skill: [SkillName])`
-    `- Evidence: [specific work product, 1 sentence]`
-    `- Verified: Agent file exists, skill in CAPABILITIES, work matches skill`
-  - OR ✅ `No agents needed (meta-work: [description])`
-  - OR ✗ `VIOLATION: Specialized work executed without agent delegation - [task name]`
-- If none of above appears in response -> response is incomplete, HALT before next prompt
-
-**Verification Requirements (for agent claims):**
-- Agent name must exist: `.agents/[AgentName].md` must be a real file
-- Skill must exist: Listed in that agent's CAPABILITIES section
-- Evidence must be specific: "analyzed 5 documents and found 3 patterns" ✅ / "completed the work" ✗
-- Evidence must match claimed skill: Don't claim strategist wrote copy (copywriter's skill)
-
-**Multi-Agent Completeness:**
-- If 3+ agents executed work, ALL must be reported
-- Missing agents from report -> agent underreporting -> escalate to user
-- Use format: `Agents used: [Agent1] (Skill: X), [Agent2] (Skill: Y), [Agent3] (Skill: Z)`
-
-**VIOLATION CIRCUIT BREAKER:**
-- If specialized task was executed without agent -> HALT before next prompt
-- Escalate to user: "Agent delegation violation. Task must be redone by appropriate agent."
-- Do not resume until user confirms correction approach
-- If agent doesn't exist or skill not in CAPABILITIES -> HALT, report which one, escalate
-
-**What requires agent delegation (strict interpretation):**
-- Any data analysis or document review -> data-auditor
-- Strategic planning or roadmapping -> strategist
-- Content creation (copy, code, docs) -> copywriter / technical-writer
-- Research (keywords, market, competitive) -> researcher-specialist
-- Anything plausibly assignable to a named specialist persona
-
-**Exception process:** NONE for specialized tasks. Always delegate.
-- Single-sentence clarifications of user intent do not require agents
-- Direct answers to factual user questions (no analysis) do not require agents
-- Everything else: delegate
+**Evidence rules:** named agents must be real (a `.agents/` file or a harness-native agent the harness actually ran); evidence must be specific ("read 14 files, found 3 candidates"), never "completed the work".
 
 ## Relationship to Framework
 
