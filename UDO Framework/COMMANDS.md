@@ -61,6 +61,7 @@
 
 | Command | What It Does |
 |---------|--------------|
+| `Validate` | Run validate.py: artifact/schema/drift check; fix errors before continuing |
 | `Backfill sessions` | Reconstruct missing session logs from conversation history |
 | `Compliance check` | Run self-check, report any gaps in logging/checkpoints/memory/mode |
 | `Catch up logging` | Create any missing logs, checkpoints, decision records |
@@ -131,6 +132,7 @@
 | `cc` | Compliance check |
 | `rc` | RC mode |
 | `st` | Session transcript (verify exists, view current, required before work starts per HS-UDO-013) |
+| `v` | Validate |
 | `bu` | Backup |
 
 ---
