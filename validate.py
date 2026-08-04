@@ -53,7 +53,7 @@ for d in state.get("deferred_debt", []):
 
 # 5. Agent drift: .agents/ vs harness copies
 canon = {p.name for p in (proj / ".agents").glob("*.md")} - {"README.md", "AGENTS_INDEX.md"}
-hdir = proj / ".claude" / "agents"
+hdir = proj.parent / ".claude" / "agents"
 if hdir.is_dir():
     gen = {p.name for p in hdir.glob("*.md")}
     if canon - gen: warns.append(f"agents not synced to harness: {sorted(canon - gen)}")

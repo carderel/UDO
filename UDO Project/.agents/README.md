@@ -25,7 +25,7 @@ You are a [specialization] operating under UDO protocol.
 
 ## Source of truth, harness copies are generated
 
-`.agents/*.md` is authoritative. If the active harness supports custom agent files (for example Claude Code's `.claude/agents/`), those harness copies are generated artifacts, regenerated from `.agents/` by the resume protocol's Agent sync step.
+`.agents/*.md` is authoritative. If the active harness supports custom agent files (for example Claude Code's ROOT `.claude/agents/` directory, the directory alongside UDO Project), those harness copies are generated artifacts, regenerated from `.agents/` by the resume protocol's Agent sync step.
 
 - Never hand-edit a harness copy. Edit the `.agents/` file and re-sync.
 - `validate.py` compares `.agents/` against the harness directory and flags drift: an agent missing from the harness (not yet synced) or a harness agent with no `.agents/` source (orphaned).

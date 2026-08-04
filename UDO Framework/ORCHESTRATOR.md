@@ -496,7 +496,7 @@ On any task, in order:
 1. Read `/UDO Framework/HARD_STOPS.md` (immutable protocol rules)
 2. Read `/UDO Project/HARD_STOPS.md` (project-specific extensions, including PROJECT_HS_003+ and the PROJECT_HS_002 capability check)
 3. **Declare delegation capability** (see START_HERE orientation step 2) and update the `delegation` block in `/UDO Project/CAPABILITIES.json`. PROJECT_HS_002 Step 0 depends on this being current.
-4. **Agent sync:** if the harness supports custom agents, regenerate its agent files from `.agents/` (e.g. copy to `.claude/agents/` on Claude Code). Never edit harness copies; `validate.py` flags drift.
+4. **Agent sync:** if the harness supports custom agents, regenerate its agent files from `.agents/` (e.g. copy to ROOT `.claude/agents/` on Claude Code, the directory alongside UDO Project). Never edit harness copies; `validate.py` flags drift.
 5. Read `/UDO Framework/REASONING_CONTRACT.md` (skim key constraints)
 6. **Create Session Transcript (see Session Records, HS-UDO-013)**
    - This is a new session: create `/UDO Project/.project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md` with the session header (including `Project: [project_id from PROJECT_STATE]`) before accepting the first prompt.
@@ -516,7 +516,7 @@ On any task, in order:
 1. Everything in Quick Resume, plus:
 2. Read `/UDO Project/PROJECT_META.json`
 3. Read `/UDO Project/CAPABILITIES.json`; re-confirm the delegation-capability declaration from Quick Resume step 3 is still current and correct it if the harness capability has changed.
-4. **Confirm agent sync:** cross-check `/UDO Project/.agents/AGENTS_INDEX.md` against the harness agent directory; if drift remains after the Quick Resume sync, resolve it now.
+4. **Confirm agent sync:** cross-check `/UDO Project/.agents/AGENTS_INDEX.md` against the harness agent directory (ROOT `.claude/agents/`, the directory alongside UDO Project); if drift remains after the Quick Resume sync, resolve it now.
 5. Read last 3 session logs from `/UDO Project/.project-catalog/sessions/`
 6. Check for any compliance gaps
 7. Check for orphaned handoff packets in `/UDO Project/.project-catalog/handoffs/`
