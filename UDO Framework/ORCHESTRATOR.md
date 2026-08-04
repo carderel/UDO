@@ -567,30 +567,32 @@ On any task, in order:
 
 ### Quick Resume (`Resume`)
 1. Read `/UDO Framework/HARD_STOPS.md` (immutable protocol rules)
-2. Read `/UDO Project/HARD_STOPS.md` (project-specific extensions, including HS-UDO-014+)
-3. Read `/UDO Framework/REASONING_CONTRACT.md` (skim key constraints)
-4. **Create Session Transcript (see Session Records, HS-UDO-013)**
+2. Read `/UDO Project/HARD_STOPS.md` (project-specific extensions, including HS-UDO-014+ and the PROJECT_HS_002 capability check)
+3. **Agent sync:** if the harness supports custom agents, regenerate its agent files from `.agents/` (e.g. copy to `.claude/agents/` on Claude Code). Never edit harness copies; `validate.py` flags drift.
+4. Read `/UDO Framework/REASONING_CONTRACT.md` (skim key constraints)
+5. **Create Session Transcript (see Session Records, HS-UDO-013)**
    - This is a new session: create `/UDO Project/.project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md` with the session header (including `Project: [project_id from PROJECT_STATE]`) before accepting the first prompt.
    - If creation FAILS: HALT. Report error to user. Do not proceed until file is writable.
-5. Read `/UDO Project/PROJECT_STATE.json`
-6. Read `/UDO Project/TOPICS.md`; report status per active slug
-7. Read `/UDO Project/LESSONS_LEARNED.md` (active lessons only)
-8. Read most recent session log from `/UDO Project/.project-catalog/sessions/`
-9. Run compliance self-check
-10. Give oversight report
-11. If a transcript from an earlier session today exists and has content:
+6. Read `/UDO Project/PROJECT_STATE.json`
+7. Read `/UDO Project/TOPICS.md`; report status per active slug
+8. Read `/UDO Project/LESSONS_LEARNED.md` (active lessons only)
+9. Read most recent session log from `/UDO Project/.project-catalog/sessions/`
+10. Run compliance self-check
+11. Give oversight report
+12. If a transcript from an earlier session today exists and has content:
     Ask user: "Transcript exists from [timestamp]. Review it for additional context? (y/n)"
     Only read if user confirms. Do not append to it; it belongs to a prior session.
-12. Ask: "Ready to continue with [next todo]?"
+13. Ask: "Ready to continue with [next todo]?"
 
 ### Deep Resume (`Deep resume`)
 1. Everything in Quick Resume, plus:
 2. Read `/UDO Project/PROJECT_META.json`
 3. Read `/UDO Project/CAPABILITIES.json`
-4. Read last 3 session logs from `/UDO Project/.project-catalog/sessions/`
-5. Check for any compliance gaps
-6. Check for orphaned handoff packets in `/UDO Project/.project-catalog/handoffs/`
-7. Give detailed oversight report with recent history
+4. **Confirm agent sync:** cross-check `/UDO Project/.agents/AGENTS_INDEX.md` against the harness agent directory; if drift remains after the Quick Resume sync, resolve it now.
+5. Read last 3 session logs from `/UDO Project/.project-catalog/sessions/`
+6. Check for any compliance gaps
+7. Check for orphaned handoff packets in `/UDO Project/.project-catalog/handoffs/`
+8. Give detailed oversight report with recent history
 
 ---
 

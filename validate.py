@@ -52,7 +52,7 @@ for d in state.get("deferred_debt", []):
         errs.append(f"deferred_debt {d.get('id')} overdue ({d['resolve_by']}): {d.get('item')}")
 
 # 5. Agent drift: .agents/ vs harness copies
-canon = {p.name for p in (proj / ".agents").glob("*.md")} - {"README.md"}
+canon = {p.name for p in (proj / ".agents").glob("*.md")} - {"README.md", "AGENTS_INDEX.md"}
 hdir = proj / ".claude" / "agents"
 if hdir.is_dir():
     gen = {p.name for p in hdir.glob("*.md")}
