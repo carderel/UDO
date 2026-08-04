@@ -632,7 +632,11 @@ Handoff Packet
       ↓
 Persona Mode (Writing)
       ↓
+Humanizer Pass
+      ↓
 Devil's Advocate Review  ← Critical checkpoint
+      ↓
+Audience Anticipation
       ↓
 User Reviews Findings
       ↓
