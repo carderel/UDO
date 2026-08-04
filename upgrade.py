@@ -101,7 +101,23 @@ PROJECT_LANE_ADD_IF_ABSENT = [
     "UDO Project/.udo",
     "UDO Project/.project-catalog/STATE_SCHEMA.md",
     "UDO Project/.agents/AGENTS_INDEX.md",
+]
+
+# Structural directories validate.py hard-requires to exist under
+# "UDO Project/". A real v2.x checkout (e.g. cloned from git, which does not
+# track empty directories) can be missing these even though every file the
+# upgrader otherwise cares about is present, which would fail self-verify
+# with no path forward. ADD (mkdir + .gitkeep) any that are missing; existing
+# content underneath an already-present directory is never touched.
+PROJECT_LANE_REQUIRED_STRUCTURAL_DIRS = [
+    "UDO Project/.project-catalog/sessions",
+    "UDO Project/.project-catalog/history",
+    "UDO Project/.project-catalog/decisions",
     "UDO Project/.project-catalog/handoffs",
+    "UDO Project/.memory/canonical",
+    "UDO Project/.memory/working",
+    "UDO Project/.agents",
+    "UDO Project/.outputs",
 ]
 
 # Files inside UDO Project/.agents/ that are registry/reference, not agent
@@ -127,15 +143,14 @@ PROJECT_LANE_TRANSFORM = [
 
 # v2.x upgrade, project lane: left untouched (session records, decisions,
 # memory, outputs, existing agents, lessons, non-goals, user uploads).
+# NOTE: .memory, .outputs, and .project-catalog/{sessions,history,decisions}
+# are NOT listed here even though their contents are preserved just the same;
+# their structural existence is covered (ADD if absent, otherwise PRESERVE)
+# by PROJECT_LANE_REQUIRED_STRUCTURAL_DIRS above.
 PROJECT_LANE_PRESERVE = [
-    "UDO Project/.memory",
-    "UDO Project/.outputs",
     "UDO Project/.checkpoints",
     "UDO Project/.inputs",
     "UDO Project/.rules",
-    "UDO Project/.project-catalog/sessions",
-    "UDO Project/.project-catalog/history",
-    "UDO Project/.project-catalog/decisions",
     "UDO Project/.project-catalog/backups",
     "UDO Project/.project-catalog/checkpoints",
     "UDO Project/LESSONS_LEARNED.md",
@@ -344,6 +359,10 @@ def _manifest_upgrade(target):
         action = "PRESERVE" if _exists_at(target, item) else "ADD"
         manifest.append((action, item))
 
+    for item in PROJECT_LANE_REQUIRED_STRUCTURAL_DIRS:
+        action = "PRESERVE" if _exists_at(target, item) else "ADD"
+        manifest.append((action, item))
+
     agents_dir = target / "UDO Project" / ".agents"
     if _has_agent_definitions(agents_dir):
         manifest.append(("PRESERVE", "UDO Project/.agents (existing agent definitions)"))
@@ -472,6 +491,18 @@ def copy_path_from_source(relpath, target, source):
         copy_tree_from_source(src, dst, source)
     else:
         shutil.copy2(src, dst)
+
+
+def ensure_structural_dir(path):
+    """Create a required-but-possibly-missing structural directory (one of
+    PROJECT_LANE_REQUIRED_STRUCTURAL_DIRS, which validate.py hard-requires to
+    exist). Idempotent and never touches existing content: a .gitkeep is
+    only written if the directory ends up empty, so a directory that already
+    has real files (e.g. .agents/ after seed agents were added) is left
+    exactly as those other steps left it."""
+    path.mkdir(parents=True, exist_ok=True)
+    if not any(path.iterdir()):
+        (path / ".gitkeep").write_text("", encoding="utf-8")
 
 
 def replace_path_from_source(relpath, target, source):
@@ -700,6 +731,10 @@ def _apply_upgrade(manifest, target, source):
     for action, relpath in manifest:
         if relpath == "UDO Project/.agents (existing agent definitions)":
             continue  # PRESERVE, informational entry only
+        if relpath in PROJECT_LANE_REQUIRED_STRUCTURAL_DIRS:
+            if action == "ADD":
+                ensure_structural_dir(target / relpath)
+            continue  # PRESERVE: existing content under it is untouched
         if action == "PRESERVE":
             continue
         if action == "ADD":
@@ -740,6 +775,7 @@ def _apply_transform(relpath, target, source):
 def _apply_migrate(manifest, target, source):
     legacy_root = target / "UDO"
     unmapped_by_lane = {}
+    legacy_dir_name = LEGACY_DIR_NAME
 
     for action, relpath in manifest:
         if relpath == "UDO Project" and action == "ADD":
@@ -747,6 +783,11 @@ def _apply_migrate(manifest, target, source):
             continue
         if relpath.startswith(".project-catalog/decisions/") and action == "ADD":
             continue  # written after the port below, once we know what's unmapped
+        if relpath == f"UDO -> {LEGACY_DIR_NAME}" and action == "TRANSFORM":
+            name = _finalize_legacy_rename(legacy_root, target)
+            if name:
+                legacy_dir_name = name
+            continue
         if " -> " in relpath and action in ("REPLACE", "ADD"):
             continue  # handled by the TRANSFORM branch below (shares the merge logic)
         if action == "ADD":
@@ -758,14 +799,10 @@ def _apply_migrate(manifest, target, source):
             if unmapped:
                 unmapped_by_lane[relpath] = unmapped
 
-    return unmapped_by_lane
+    return unmapped_by_lane, legacy_dir_name
 
 
 def _apply_migrate_transform(relpath, target, source, legacy_root):
-    if relpath == f"UDO -> {LEGACY_DIR_NAME}":
-        _finalize_legacy_rename(legacy_root, target)
-        return None
-
     if relpath == "UDO/PROJECT_STATE.json -> UDO Project/PROJECT_STATE.json":
         v4_state_path = legacy_root / "PROJECT_STATE.json"
         v4_state = load_json(v4_state_path)
@@ -832,10 +869,45 @@ def _merge_directory(legacy_src, project_dst):
 
 
 def _finalize_legacy_rename(legacy_root, target):
+    """Rename UDO/ (the legacy v4.x install) out of the way.
+
+    If UDO-v4-LEGACY-DO-NOT-EDIT/ already exists at the target (a retry
+    after an earlier migrate that renamed the legacy folder but did not
+    complete, e.g. the backup was restored and --mode migrate re-run), fall
+    back to a timestamp-suffixed name (same format as backup dirs) instead
+    of letting Path.rename() raise straight into main() as a raw traceback.
+    Any other OSError from the rename itself is wrapped in UpgradeError so it
+    surfaces through the normal "UPGRADE FAILED ... Backup is at: ..." path.
+
+    Returns the final legacy directory name (just the name, not a full
+    path), or None if there was no UDO/ to rename.
+    """
     if not legacy_root.exists():
-        return
+        return None
+
     legacy_dest = target / LEGACY_DIR_NAME
-    legacy_root.rename(legacy_dest)
+    suffixed = False
+    if legacy_dest.exists():
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        legacy_dest = target / f"{LEGACY_DIR_NAME}-{timestamp}"
+        suffixed = True
+
+    try:
+        legacy_root.rename(legacy_dest)
+    except OSError as exc:
+        raise UpgradeError(
+            f"could not move the legacy installation from {legacy_root} to "
+            f"{legacy_dest}: {exc}"
+        ) from exc
+
+    extra_note = ""
+    if suffixed:
+        extra_note = (
+            f"\nRenamed to \"{legacy_dest.name}/\" (timestamp-suffixed) because "
+            f"\"{LEGACY_DIR_NAME}/\" already existed at this target, most likely "
+            "from a previous migrate attempt.\n"
+        )
+
     notice = legacy_dest / "_LEGACY_NOTICE.md"
     notice.write_text(
         "# Legacy UDO v4.x installation\n\n"
@@ -844,9 +916,11 @@ def _finalize_legacy_rename(legacy_root, target):
         "Do not edit files in this directory. The active project now lives in\n"
         "\"UDO Project/\" at the repository root; the migration record is at\n"
         "\"UDO Project/.project-catalog/decisions/\".\n\n"
-        "This directory is never deleted by upgrade.py.\n",
+        "This directory is never deleted by upgrade.py.\n"
+        f"{extra_note}",
         encoding="utf-8",
     )
+    return legacy_dest.name
 
 
 # ---------------------------------------------------------------------------
@@ -905,7 +979,7 @@ def write_decision_record(target, mode, source_version, manifest, backup_dir):
     return record_path
 
 
-def write_migration_record(target, unmapped_by_lane):
+def write_migration_record(target, unmapped_by_lane, legacy_dir_name=LEGACY_DIR_NAME):
     date = datetime.date.today().isoformat()
     decisions_dir = target / "UDO Project" / ".project-catalog" / "decisions"
     decisions_dir.mkdir(parents=True, exist_ok=True)
@@ -915,7 +989,15 @@ def write_migration_record(target, unmapped_by_lane):
         "# v4.x to v2.2 migration record",
         "",
         f"- Date: {date}",
-        f"- Legacy installation preserved at: {LEGACY_DIR_NAME}/",
+        f"- Legacy installation preserved at: {legacy_dir_name}/",
+    ]
+    if legacy_dir_name != LEGACY_DIR_NAME:
+        lines.append(
+            f"- Note: renamed to a timestamp-suffixed name because \"{LEGACY_DIR_NAME}/\" "
+            "already existed at this target (most likely a retry after an earlier "
+            "migrate attempt)."
+        )
+    lines += [
         "",
         "## Unmapped / unmappable fields",
         "",
@@ -976,7 +1058,6 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     target = Path(args.target_dir).expanduser().resolve()
-    target.mkdir(parents=True, exist_ok=True)
 
     cleanup_dir = None
     try:
@@ -1014,11 +1095,17 @@ def main(argv=None):
                 print("Cancelled.")
                 return 0
 
+        # Only touch the filesystem once we are committed to applying: a
+        # --dry-run (or a cancelled prompt) against a nonexistent nested
+        # TARGET_DIR must leave it absent, per the "no changes" contract.
+        target.mkdir(parents=True, exist_ok=True)
+
         backup_dir = backup(target)
         print(f"Backup created at: {backup_dir}")
 
+        legacy_dir_name = LEGACY_DIR_NAME
         if lane_mode == "migrate":
-            unmapped_by_lane = _apply_migrate(manifest, target, source) or {}
+            unmapped_by_lane, legacy_dir_name = _apply_migrate(manifest, target, source)
         else:
             apply(manifest, lane_mode, target, source)
             unmapped_by_lane = {}
@@ -1033,8 +1120,13 @@ def main(argv=None):
             return 1
 
         if mode == "migrate":
-            migration_record = write_migration_record(target, unmapped_by_lane)
+            migration_record = write_migration_record(target, unmapped_by_lane, legacy_dir_name)
             print(f"Migration record written: {migration_record}")
+            if legacy_dir_name != LEGACY_DIR_NAME:
+                print(
+                    f"Note: legacy UDO/ was renamed to \"{legacy_dir_name}/\" (timestamp-suffixed) "
+                    f"because \"{LEGACY_DIR_NAME}/\" already existed at this target."
+                )
 
         record_path = write_decision_record(target, mode, source_version, manifest, backup_dir)
         print("")
