@@ -2,12 +2,14 @@
   "project_state": {
     "project_name": "New Project",
     "project_id": "placeholder-project-id",
+    "goal": "",
     "status": "initialized",
-    "udo_version": "2.0",
-    "created": "2026-03-10",
-    "last_updated": "2026-03-10",
-    "last_updated_by": "system-placeholder",
+    "udo_version": "2.2",
+    "created": "",
+    "last_updated": "",
+    "last_updated_by": "",
     "current_phase": "setup",
+    "scope_locked": false,
     "completion_percentage": 0,
     "owner": "User",
     "active_agent": null,
@@ -17,7 +19,23 @@
       "count_since_last_state_update": 0,
       "last_state_update_session": "none"
     },
+    "todos": [],
+    "deferred_debt": [],
     "checkpoints": [],
-    "notes": "Project initialized from UDO v2.0 template"
+    "auto_checkpoint": {
+      "enabled": true,
+      "trigger": "phase-boundary",
+      "last_auto_checkpoint": null
+    },
+    "circuit_breaker": {
+      "triggered": false,
+      "reason": null,
+      "timestamp": null
+    },
+    "context_health": {
+      "estimated_usage": "low",
+      "last_archive": null
+    },
+    "notes": "Fresh UDO v2.2 install. Fill in goal and project details from PROJECT_META.json."
   }
 }
