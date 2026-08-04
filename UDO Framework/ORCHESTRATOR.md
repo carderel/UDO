@@ -274,7 +274,7 @@ If unclear which mode applies, use this test:
 
 ---
 
-## Protocol Tiers (PROJECT_META.protocol_strict)
+### Protocol Tiers (PROJECT_META.protocol_strict)
 
 - `true` (default): full protocol as written.
 - `false` (UDO-Lite): REQUIRED: PROJECT_STATE.json currency, session transcript, session log at end, hard stops. DROPPED: per-response verification reporting, dual-mode handoff packets for small tasks, decision logs for minor choices, empty scaffolding (create HARD_STOPS/LESSONS entries on first real content, not at init). Delegation stays governed by PROJECT_HS_002.
