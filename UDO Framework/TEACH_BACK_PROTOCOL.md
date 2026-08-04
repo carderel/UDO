@@ -4,7 +4,7 @@
 
 Evidence packets prove claims are sourced. But sourced claims don't equal understanding.
 
-The Teach-Back Protocol ensures the human can **own and defend** the findings—not just trust them. By the time you've read the teach-back and challenged it, you've internalized the research enough to present it as your own.
+The Teach-Back Protocol ensures the human can **own and defend** the findings, not just trust them. By the time you've read the teach-back and challenged it, you've internalized the research enough to present it as your own.
 
 ---
 
@@ -49,10 +49,10 @@ The teach-back MUST include:
 
 ### 3. Writing Standards
 
-- **No jargon** — Write for a smart person who hasn't seen the data
-- **Conversational tone** — Not a formal report, a explanation
-- **Honest about weaknesses** — Flag what a skeptic would challenge
-- **Actionable responses** — Don't just list challenges, show how to address them
+- **No jargon**: write for a smart person who hasn't seen the data
+- **Conversational tone**: not a formal report, an explanation
+- **Honest about weaknesses**: flag what a skeptic would challenge
+- **Actionable responses**: don't just list challenges, show how to address them
 
 ### 4. Confidence Transparency
 

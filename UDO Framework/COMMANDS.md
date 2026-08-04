@@ -28,14 +28,14 @@
 
 ### What `Backup` Does (in order)
 
-1. **Update `PROJECT_STATE.json`** — current goal, phase, todos, in_progress, completed, blockers, session actions
-2. **Create/update session log** — write or append to `.project-catalog/sessions/` for this session
-3. **Archive session transcript** — append archive marker to `.project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md`
-4. **Create checkpoint** — save progress snapshot to `.checkpoints/`
-5. **Reset prompt counter** — `prompt_counter.count_since_last_state_update` → 0
-6. **Log decisions** — any undocumented decisions get written to `.project-catalog/decisions/`
-7. **Flush working memory** — anything in conversation that should be in `.memory/working/` gets written
-8. **Confirm** — report: "Backup complete. State updated. Session logged. Checkpoint created."
+1. **Update `PROJECT_STATE.json`**: current goal, phase, todos, in_progress, completed, blockers, session actions
+2. **Create/update session log**: write or append to `.project-catalog/sessions/` for this session
+3. **Archive session transcript**: append archive marker to `.project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md`
+4. **Create checkpoint**: save progress snapshot to `.checkpoints/`
+5. **Reset prompt counter**: `prompt_counter.count_since_last_state_update` → 0
+6. **Log decisions**: any undocumented decisions get written to `.project-catalog/decisions/`
+7. **Flush working memory**: anything in conversation that should be in `.memory/working/` gets written
+8. **Confirm**: report "Backup complete. State updated. Session logged. Checkpoint created."
 
 ## Mode Control
 

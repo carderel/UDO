@@ -27,13 +27,13 @@ UDO v2.0 introduces a dual-folder structure for safe multi-AI collaboration:
 
 ### Key Rules for Multi-AI Safety
 
-1. **Read Framework rules first, then Project rules** — When you resume, read `/UDO Framework/HARD_STOPS.md` first for immutable protocol rules, then `/UDO Project/HARD_STOPS.md` for project-specific extensions.
+1. **Read Framework rules first, then Project rules**: when you resume, read `/UDO Framework/HARD_STOPS.md` first for immutable protocol rules, then `/UDO Project/HARD_STOPS.md` for project-specific extensions.
 
 2. **Project rules inherit and extend Framework rules**: you cannot override the framework hard stops (see HARD_STOPS.md for the authoritative list; some IDs are retired tombstones), but you can add project-specific rules in `/UDO Project/HARD_STOPS.md`.
 
-3. **Never modify Framework files** — The Framework is read-only for your project. All your customizations go in `/UDO Project/`.
+3. **Never modify Framework files**: the Framework is read-only for your project. All your customizations go in `/UDO Project/`.
 
-4. **When multiple AIs work the same project** — Always read `/UDO Project/PROJECT_STATE.json` before updating it to detect conflicting changes (HS-UDO-015).
+4. **When multiple AIs work the same project**: always read `/UDO Project/PROJECT_STATE.json` before updating it to detect conflicting changes (HS-UDO-015).
 
 ### Why This Matters
 

@@ -56,4 +56,4 @@ Corrections to an agent's behavior are written into that agent's own `## Learned
 
 - `AGENTS_INDEX.md` - registry table of installed agents and their sync status
 - `TOOLS/CATALOG-AGENTS.md` - cached catalog of installable agents
-- `.templates/agent.md` - long-form fallback template PROJECT_HS_002 points to when nothing installed or cataloged fits; a file created from it still needs the frontmatter header above before it counts as an `.agents/` entry
+- `.templates/agent.md` - long-form fallback template PROJECT_HS_002 points to when nothing installed or cataloged fits; it already carries the frontmatter header above, so filling in its placeholders and saving the file to `.agents/{agent-name}.md` is enough to register it

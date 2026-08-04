@@ -8,8 +8,8 @@
 
 When multiple AI assistants work on the same project, isolation is critical. v2.0 separates:
 
-- **`/UDO Framework/`** — The immutable reference files (read-only for your project)
-- **`/UDO Project/`** — Your working context (where you read and write)
+- **`/UDO Framework/`**: the immutable reference files (read-only for your project)
+- **`/UDO Project/`**: your working context (where you read and write)
 
 This prevents AI agents from accidentally modifying framework rules while still allowing project-specific customization.
 
@@ -116,7 +116,7 @@ Complete these orientation steps:
 > - **Phase:** [current phase]
 > - **Delegation:** [AVAILABLE via ... | NOT AVAILABLE, single-context mode]
 > - **Last session:** [summary from most recent session log]
-> - **Transcript:** [path if exists, or "none"] — offer to review if user wants additional context
+> - **Transcript:** [path if exists, or "none"]; offer to review if user wants additional context
 > - **Next steps:** [from PROJECT_STATE.json or last session]
 > Ready to continue."
 
@@ -197,9 +197,9 @@ Before starting ANY work, confirm you will:
 - [ ] Update `/UDO Project/PROJECT_STATE.json` after completing work
 - [ ] Use RC mode for analysis, Persona mode for delivery
 - [ ] Create handoff packet before switching from RC to Persona mode
-- [ ] **New in v2.0:** NEVER modify files in `/UDO Framework/` — extend rules in `/UDO Project/HARD_STOPS.md` instead
+- [ ] **New in v2.0:** NEVER modify files in `/UDO Framework/`; extend rules in `/UDO Project/HARD_STOPS.md` instead
 - [ ] **New in v2.0:** When multiple AIs work the same project, read `/UDO Project/PROJECT_STATE.json` before updating (HS-UDO-015)
 
 **If you find yourself working without logging, STOP and catch up.**
 **If you find yourself making claims without evidence, STOP and engage RC mode.**
-**If you find yourself modifying framework files, STOP — your changes go in `/UDO Project/` instead.**
+**If you find yourself modifying framework files, STOP: your changes go in `/UDO Project/` instead.**
