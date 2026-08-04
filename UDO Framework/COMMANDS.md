@@ -91,6 +91,12 @@
 | `Create agent [name]` | Manually create a specialist agent |
 | `Archive agent [name]` | Move agent to archive |
 
+## Skills
+
+| Command | What It Does |
+|---------|--------------|
+| `Refresh catalog` | Re-fetch the source README and regenerate `TOOLS/CATALOG.md` |
+
 ## Memory
 
 | Command | What It Does |

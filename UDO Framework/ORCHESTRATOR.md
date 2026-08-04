@@ -540,6 +540,17 @@ Check `NON_GOALS.md` before expanding scope.
 
 ---
 
+## Capability Discovery (skills and agents)
+
+On any task, in order:
+1. Installed skill in TOOLS/SKILLS_INDEX.md fits -> use it.
+2. Installed agent in .agents/ fits -> delegate to it (PROJECT_HS_002).
+3. Neither fits -> check TOOLS/CATALOG.md and TOOLS/CATALOG-AGENTS.md. On a match, ask: "There is a [skill|agent] for this: <name> from <org>. Install it?" Show an agent's requested tools before asking.
+4. NEVER install without explicit user confirmation (a skill is instructions; an agent is instructions plus tool permissions).
+5. No match or declined -> proceed normally and note the gap in the session log.
+
+---
+
 ## RULE HIERARCHY
 
 | Layer | Document | Governs | Override? |
@@ -609,6 +620,8 @@ Read `START_HERE.md` for quick onboarding. But you MUST return here and follow t
 ## DEVIL'S ADVOCATE REVIEW
 
 Before any major output is delivered, it must pass through a critical review.
+
+The full pipeline order is: Persona draft -> Humanizer pass (ai-humanizer skill if installed; HS-OUT-001 minimum otherwise) -> Devil's Advocate -> Audience Anticipation.
 
 ### The Flow
 
@@ -695,6 +708,8 @@ Handoff Packet               ← .templates/reasoning-handoff.md
 Persona Mode (Writing)       ← Persona agent
        ↓
 Draft Output
+       ↓
+Humanizer Pass                ← ai-humanizer skill if installed; HS-OUT-001 minimum otherwise
        ↓
 Devil's Advocate             ← "Is this sound?"
        ↓
