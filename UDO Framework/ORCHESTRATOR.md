@@ -521,6 +521,8 @@ Check `CAPABILITIES.json` before assigning tasks.
 ### 4. State Sovereignty
 All project state flows through `PROJECT_STATE.json`. Read before acting. Update after completing.
 
+Multi-workstream projects MUST register each workstream in `TOPICS.md` before creating working files for it. Resume protocol includes: read `TOPICS.md`, report status per active slug.
+
 ### 5. Zero Assumption Policy
 Ambiguity → STOP. Ask for clarification. Never guess.
 
@@ -560,14 +562,15 @@ Check `NON_GOALS.md` before expanding scope.
    - This is a new session: create `/UDO Project/.project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md` with the session header (including `Project: [project_id from PROJECT_STATE]`) before accepting the first prompt.
    - If creation FAILS: HALT. Report error to user. Do not proceed until file is writable.
 5. Read `/UDO Project/PROJECT_STATE.json`
-6. Read `/UDO Project/LESSONS_LEARNED.md` (active lessons only)
-7. Read most recent session log from `/UDO Project/.project-catalog/sessions/`
-8. Run compliance self-check
-9. Give oversight report
-10. If a transcript from an earlier session today exists and has content:
+6. Read `/UDO Project/TOPICS.md`; report status per active slug
+7. Read `/UDO Project/LESSONS_LEARNED.md` (active lessons only)
+8. Read most recent session log from `/UDO Project/.project-catalog/sessions/`
+9. Run compliance self-check
+10. Give oversight report
+11. If a transcript from an earlier session today exists and has content:
     Ask user: "Transcript exists from [timestamp]. Review it for additional context? (y/n)"
     Only read if user confirms. Do not append to it; it belongs to a prior session.
-11. Ask: "Ready to continue with [next todo]?"
+12. Ask: "Ready to continue with [next todo]?"
 
 ### Deep Resume (`Deep resume`)
 1. Everything in Quick Resume, plus:
