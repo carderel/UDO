@@ -17,42 +17,57 @@ This release introduces architectural separation with `/UDO Framework/` (immutab
 
 ## Quick Start
 
-### For New Projects
+There is a single source for UDO: `https://github.com/carderel/UDO-v2.0` (clone it, or download the zip). See `DOCUMENTATION/QUICK_START.md` for full install steps for a brand new project versus adding UDO to an existing one, on Mac, Linux, and Windows.
+
+### Fastest path, new project
+
 ```bash
-cd /path/to/your/project
-git clone https://github.com/carderel/UDO-v2.0.git UDO
-cd UDO
-./upgrade.sh --fresh
+git clone https://github.com/carderel/UDO-v2.0.git my-project
+cd my-project
 ```
 
-### For v4.x Migrations
+Then start your LLM CLI from that folder and say: Read 'UDO Framework/START_HERE.md' and begin.
+
+### Upgrading an existing UDO project
+
 ```bash
-cd /path/to/existing/v4x/project
-git clone https://github.com/carderel/UDO-v2.0.git UDO-temp
-./UDO-temp/upgrade.sh --migrate
-# Follows prompts to migrate your existing UDO v4.x structure
+cd /path/to/your/project
+./upgrade.sh          # Mac/Linux
+.\upgrade.ps1          # Windows
 ```
+
+This replaces `UDO Framework/` wholesale with the latest version and never touches `UDO Project/`.
 
 ## Directory Structure
 
+Cloning (or unzipping) the repo gives you 5 folders at your project root:
+
 ```
-UDO/
-├── UDO Framework/              ← Read-only immutable reference
+your-project/
+├── UDO Framework/              ← Read-only, replaced wholesale on upgrade
 │   ├── ORCHESTRATOR.md        (main specification)
 │   ├── START_HERE.md          (entry point for new AIs)
 │   ├── HARD_STOPS.md          (mandatory protocol rules)
 │   ├── COMMANDS.md            (session commands and shortcuts)
-│   └── [45+ framework files]
+│   └── [other framework files]
 │
-└── UDO Project/               ← Your isolated working context
-    ├── PROJECT_STATE.json    (current goal, phase, todos)
-    ├── PROJECT_META.json     (project identity)
-    ├── .project-catalog/     (sessions, decisions, history)
-    ├── .memory/              (canonical, working, disposable)
-    ├── .outputs/             (deliverables)
-    ├── User Uploads/         (provided materials)
-    └── [25+ project template files]
+├── UDO Project/                ← Your isolated working context, upgrades never touch this
+│   ├── PROJECT_STATE.json     (current goal, phase, todos)
+│   ├── PROJECT_META.json      (project identity)
+│   ├── TOPICS.md              (parallel workstreams)
+│   ├── .agents/               (agent personas)
+│   ├── .project-catalog/      (sessions, decisions, history)
+│   ├── .memory/               (canonical, working, disposable)
+│   ├── .outputs/               (deliverables)
+│   ├── .udo/                  (Claude Code enforcement hook, optional)
+│   └── [other project files]
+│
+├── TOOLS/                       ← Installed skills and agents registry
+├── DOCUMENTATION/                ← Onboarding guides (start here if you're new)
+└── User Provided Files/          ← External references and handoffs
 ```
+
+See `DOCUMENTATION/FOLDER_GUIDE.md` for what lives in each folder and when to use it.
 
 ## The Problem v2.0 Solves
 
@@ -62,11 +77,12 @@ UDO/
 
 ## Documentation
 
-- **NEW AI?** Start with `/UDO Framework/START_HERE.md`
-- **Architecture Overview?** Read `/UDO Framework/README.md`
-- **Upgrading from v4.x?** See `/UDO Framework/MIGRATION-GUIDE.md`
-- **Protocol Specification?** Read `/UDO Framework/ORCHESTRATOR.md`
-- **Mandatory Rules?** Check `/UDO Framework/HARD_STOPS.md`
+- **New to UDO?** Start with `DOCUMENTATION/QUICK_START.md`
+- **Want the folder-by-folder tour?** Read `DOCUMENTATION/FOLDER_GUIDE.md`
+- **New AI, starting a session?** It should read `UDO Framework/START_HERE.md`
+- **Architecture overview?** Read `UDO Framework/README.md`
+- **Protocol specification?** Read `UDO Framework/ORCHESTRATOR.md`
+- **Mandatory rules?** Check `UDO Framework/HARD_STOPS.md`
 
 ## For Framework Developers
 
