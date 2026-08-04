@@ -1,24 +1,15 @@
 {
-  "capabilities": {
-    "project_capabilities": {
-      "initialized": "2026-03-10",
-      "framework_integration": "UDO v2.0",
-      "features": [],
-      "integrations": [],
-      "third_party_tools": [],
-      "automation_enabled": false,
-      "notes": "Add project capabilities as they are developed"
-    },
-    "agent_capabilities": {
-      "primary_agent": null,
-      "available_agents": [],
-      "notes": "Define agents in .agents/ directory"
-    },
-    "data_capabilities": {
-      "data_sources": [],
-      "data_sinks": [],
-      "formats_supported": [],
-      "notes": "Document all data handling capabilities"
-    }
-  }
+  "environment": "",
+  "llm": "",
+  "delegation": {
+    "available": null,
+    "mechanism": "",
+    "detected_by": "",
+    "detected_date": ""
+  },
+  "tools_available": {
+    "file_read": null, "file_write": null, "web_search": null,
+    "code_execution": null, "browser_control": null
+  },
+  "notes": "The delegation block is auto-filled at every session start (START_HERE step 2). Fill the rest on first session."
 }

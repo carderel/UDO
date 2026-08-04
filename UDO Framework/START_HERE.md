@@ -99,17 +99,22 @@ Do not proceed until you have:
 Complete these orientation steps:
 
 1. **Check hard stops:** `HARD_STOPS.md` (rules you must NEVER violate)
-2. **Check reasoning contract:** `REASONING_CONTRACT.md` (how to think during analysis)
-3. **Check current status:** `PROJECT_STATE.json`
-4. **Check lessons:** `LESSONS_LEARNED.md` (mistakes to avoid)
-5. **Know your environment:** `CAPABILITIES.json`
-6. **Check recent sessions:** `.project-catalog/sessions/` (most recent file)
+2. **Declare your delegation capability (MANDATORY).** Determine whether this harness can spawn subagents. Write the result to CAPABILITIES.json (`delegation` block) and include ONE of these lines in your orientation report:
+   - "Delegation: AVAILABLE via [mechanism]. Custom agents sync from .agents/."
+   - "Delegation: NOT AVAILABLE in [harness]. All specialized work will execute in this context window. PROJECT_HS_002 suspended (logged). Checkpoint cadence tightened."
+   If the stored value differs from what you detect (LLM switch), say so explicitly: "Previous session had [X]; this session has [Y]. Planned delegated work will run [accordingly]."
+3. **Check reasoning contract:** `REASONING_CONTRACT.md` (how to think during analysis)
+4. **Check current status:** `PROJECT_STATE.json`
+5. **Check lessons:** `LESSONS_LEARNED.md` (mistakes to avoid)
+6. **Know your environment:** `CAPABILITIES.json`
+7. **Check recent sessions:** `.project-catalog/sessions/` (most recent file)
 
 ## Then Give Your Orientation Report:
 
 > "I've read ORCHESTRATOR.md and REASONING_CONTRACT.md and reviewed the project.
 > - **Goal:** [from PROJECT_STATE.json]
 > - **Phase:** [current phase]
+> - **Delegation:** [AVAILABLE via ... | NOT AVAILABLE, single-context mode]
 > - **Last session:** [summary from most recent session log]
 > - **Transcript:** [path if exists, or "none"] — offer to review if user wants additional context
 > - **Next steps:** [from PROJECT_STATE.json or last session]
