@@ -519,6 +519,26 @@ def replace_path_from_source(relpath, target, source):
 # Pure transform functions (dict/text in, dict/text out; no I/O)
 # ---------------------------------------------------------------------------
 
+def _collect_todo_ids(todos):
+    """Return the set of T-NNN ids already used by structured todo dicts."""
+    ids = set()
+    for t in todos:
+        if isinstance(t, dict) and isinstance(t.get("id"), str):
+            ids.add(t["id"])
+    return ids
+
+
+def _next_todo_id(used_ids):
+    """Return the lowest unused T-NNN id, marking it used in used_ids."""
+    n = 1
+    while True:
+        candidate = f"T-{n:03d}"
+        if candidate not in used_ids:
+            used_ids.add(candidate)
+            return candidate
+        n += 1
+
+
 def transform_state(state_obj, source_state_obj):
     """v2.x in-place upgrade transform of a parsed PROJECT_STATE.json.
 
@@ -562,10 +582,13 @@ def transform_state(state_obj, source_state_obj):
         if key not in inner:
             inner[key] = copy.deepcopy(default)
 
+    existing_ids = _collect_todo_ids(inner.get("todos", []))
     normalized_todos = []
-    for i, todo in enumerate(inner.get("todos", []), start=1):
+    for todo in inner.get("todos", []):
         if isinstance(todo, str):
-            normalized_todos.append({"id": f"T-{i:03d}", "task": todo, "status": "pending", "priority": "normal"})
+            normalized_todos.append(
+                {"id": _next_todo_id(existing_ids), "task": todo, "status": "pending", "priority": "normal"}
+            )
         else:
             normalized_todos.append(todo)
     inner["todos"] = normalized_todos
@@ -635,20 +658,50 @@ def append_hard_stops_project_blocks(existing_text, source_text):
 def map_v4_state_to_v22(v4_obj, source_state_obj):
     """Map a v4 flat PROJECT_STATE.json to the v2.2 nested schema.
 
+    Fields that exist in both schemas, or have a natural v2.2 home, carry
+    their live v4 values forward instead of reverting to template defaults:
+    `circuit_breaker` and `context_health` carry verbatim when present;
+    `auto_checkpoint` carries when present with `trigger` normalized to
+    "phase-boundary" (any v4 count-based subfield with no v2.2 shape, e.g.
+    `todos_since_checkpoint`, is moved into the returned unmapped dict
+    instead); v4 `in_progress[]` string items become structured todos with
+    status "in_progress", placed before the pending todos and sharing the
+    same T-NNN id sequence (no duplicate ids, even when some todos already
+    carry an explicit id).
+
     Returns (v22_state_dict, unmapped_dict). unmapped_dict carries the v4
-    `completed` list and any field with no v2.2 equivalent, so nothing is
-    silently dropped; the caller writes unmapped_dict into the migration
-    decision record. Pure: returns new dicts, never mutates its arguments.
+    `completed` list and any field with no v2.2 equivalent (e.g. blockers,
+    agent_registry, bridge, current_session, prompt_counter internals), so
+    nothing is silently dropped; the caller writes unmapped_dict into the
+    migration decision record, where it lives only in that record. Pure:
+    returns new dicts, never mutates its arguments.
     """
     v4 = copy.deepcopy(v4_obj) if isinstance(v4_obj, dict) else {}
-    known_v4_keys = {"goal", "phase", "todos", "checkpoints", "completed"}
+    known_v4_keys = {
+        "goal", "phase", "todos", "in_progress", "checkpoints", "completed",
+        "circuit_breaker", "context_health", "auto_checkpoint",
+    }
+
+    existing_ids = _collect_todo_ids(v4.get("todos", [])) | _collect_todo_ids(v4.get("in_progress", []))
 
     todos = []
-    for i, t in enumerate(v4.get("todos", []), start=1):
+    for t in v4.get("in_progress", []):
         if isinstance(t, str):
-            todos.append({"id": f"T-{i:03d}", "task": t, "status": "pending", "priority": "normal"})
+            todos.append({"id": _next_todo_id(existing_ids), "task": t, "status": "in_progress", "priority": "normal"})
         elif isinstance(t, dict):
-            todos.append(t)
+            item = dict(t)
+            item.setdefault("status", "in_progress")
+            if not isinstance(item.get("id"), str):
+                item["id"] = _next_todo_id(existing_ids)
+            todos.append(item)
+    for t in v4.get("todos", []):
+        if isinstance(t, str):
+            todos.append({"id": _next_todo_id(existing_ids), "task": t, "status": "pending", "priority": "normal"})
+        elif isinstance(t, dict):
+            item = dict(t)
+            if not isinstance(item.get("id"), str):
+                item["id"] = _next_todo_id(existing_ids)
+            todos.append(item)
 
     checkpoints = []
     for cp in v4.get("checkpoints", []):
@@ -675,6 +728,39 @@ def map_v4_state_to_v22(v4_obj, source_state_obj):
     inner["scope_locked"] = False
 
     unmapped = {"completed": v4.get("completed", [])}
+
+    if "circuit_breaker" in v4:
+        inner["circuit_breaker"] = copy.deepcopy(v4["circuit_breaker"])
+    else:
+        inner["circuit_breaker"] = copy.deepcopy(
+            source_inner.get("circuit_breaker", {"triggered": False, "reason": None, "timestamp": None})
+        )
+
+    if "context_health" in v4:
+        inner["context_health"] = copy.deepcopy(v4["context_health"])
+    else:
+        inner["context_health"] = copy.deepcopy(
+            source_inner.get("context_health", {"estimated_usage": "low", "last_archive": None})
+        )
+
+    if isinstance(v4.get("auto_checkpoint"), dict):
+        ac = v4["auto_checkpoint"]
+        inner["auto_checkpoint"] = {
+            "enabled": ac.get("enabled", True),
+            "trigger": "phase-boundary",
+            "last_auto_checkpoint": ac.get("last_auto_checkpoint"),
+        }
+        leftover = {k: v for k, v in ac.items() if k not in {"enabled", "last_auto_checkpoint", "trigger"}}
+        if leftover:
+            unmapped["auto_checkpoint"] = leftover
+    else:
+        inner["auto_checkpoint"] = copy.deepcopy(
+            source_inner.get(
+                "auto_checkpoint",
+                {"enabled": True, "trigger": "phase-boundary", "last_auto_checkpoint": None},
+            )
+        )
+
     for key, value in v4.items():
         if key not in known_v4_keys:
             unmapped[key] = value
@@ -699,7 +785,7 @@ def load_json(path):
 
 def write_json(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -1001,8 +1087,11 @@ def write_migration_record(target, unmapped_by_lane, legacy_dir_name=LEGACY_DIR_
         "",
         "## Unmapped / unmappable fields",
         "",
-        "Nothing from the v4 PROJECT_STATE.json is dropped silently. Fields with",
-        "no v2.2 equivalent, and the v4 `completed` list, are recorded here.",
+        "The following v4 fields have no v2.2 equivalent and live only in this",
+        "record. They are not silently dropped, but they are not carried into",
+        "the live PROJECT_STATE.json either. Fields with a natural v2.2 home",
+        "(circuit_breaker, context_health, auto_checkpoint, in_progress) are",
+        "carried into the live state directly and do not appear below.",
         "",
     ]
     any_unmapped = False
@@ -1013,7 +1102,7 @@ def write_migration_record(target, unmapped_by_lane, legacy_dir_name=LEGACY_DIR_
         lines.append(f"### {lane}")
         lines.append("")
         lines.append("```json")
-        lines.append(json.dumps(unmapped, indent=2))
+        lines.append(json.dumps(unmapped, indent=2, ensure_ascii=False))
         lines.append("```")
         lines.append("")
     if not any_unmapped:
