@@ -1,0 +1,7 @@
+{
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "python3", "args": ["$CLAUDE_PROJECT_DIR/UDO Project/.udo/udo_hook.py", "session_start"], "timeout": 15, "statusMessage": "UDO: loading project state"}]}],
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "python3", "args": ["$CLAUDE_PROJECT_DIR/UDO Project/.udo/udo_hook.py", "user_prompt_submit"], "timeout": 15}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "python3", "args": ["$CLAUDE_PROJECT_DIR/UDO Project/.udo/udo_hook.py", "stop"], "timeout": 15, "statusMessage": "UDO: compliance check"}]}]
+  }
+}

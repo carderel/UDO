@@ -73,3 +73,6 @@ UDO Project/.checkpoints/*
 # Do NOT ignore .memory/canonical - it's the source of truth
 # Do NOT ignore PROJECT_STATE.json - it's tracked
 # Do NOT ignore PROJECT_META.json - it's tracked
+
+# UDO hook runtime state - not part of the tracked protocol
+UDO Project/.udo/hook-state.json
