@@ -479,7 +479,7 @@ Confirm transcript is at: `.project-catalog/history/YYYY-MM-DD-HHMM-session-tran
 | Error rate > 30% in a phase | Pause phase, request audit |
 | Circular handoff detected | HALT, log anomaly |
 | Context usage > 80% | Trigger mandatory archival |
-| No session log for 5+ todos | HALT, run Backfill sessions |
+| Transcript not updated after the last response (violates HS-UDO-013) | HALT, append transcript immediately |
 | Phase transition or risky operation attempted without a checkpoint | HALT, create checkpoint immediately |
 | **Persona mode without handoff** | **HALT, require RC analysis first** |
 | **Confidence stated without evidence** | **HALT, apply RC constraints** |
