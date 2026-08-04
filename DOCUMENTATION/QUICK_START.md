@@ -130,7 +130,7 @@ This checks that required files and folders exist, `PROJECT_STATE.json` parses a
 - Make sure you have write access to the project folder.
 
 **"How do I upgrade later?"**
-- Run `./upgrade.sh` (Mac/Linux) or `./upgrade.ps1` (Windows) from the project root. Upgrades replace `UDO Framework/` wholesale and never touch `UDO Project/`.
+- The bundled `upgrade.sh` / `upgrade.ps1` scripts predate the current two-folder layout and are being redesigned in a separate workstream; running them now is not a working upgrade path. Until they ship, upgrade manually: back up your project, replace `UDO Framework/` with the one from a fresh clone of `https://github.com/carderel/UDO-v2.0`, and leave `UDO Project/` untouched.
 
 **"Should I turn on the enforcement hook?"**
 - If you're on Claude Code, yes, it's already wired up and costs nothing extra. On other LLM CLIs, use `python3 validate.py` instead; see Step 4 above.

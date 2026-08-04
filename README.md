@@ -30,13 +30,7 @@ Then start your LLM CLI from that folder and say: Read 'UDO Framework/START_HERE
 
 ### Upgrading an existing UDO project
 
-```bash
-cd /path/to/your/project
-./upgrade.sh          # Mac/Linux
-.\upgrade.ps1          # Windows
-```
-
-This replaces `UDO Framework/` wholesale with the latest version and never touches `UDO Project/`.
+The bundled `upgrade.sh` / `upgrade.ps1` scripts predate the v2 two-folder layout and are being redesigned in a separate workstream. Until they ship, upgrade manually: back up your project, replace the `UDO Framework/` folder with the one from a fresh clone of `https://github.com/carderel/UDO-v2.0`, and leave `UDO Project/` untouched.
 
 ## Directory Structure
 
@@ -95,16 +89,7 @@ To extend the framework for your project:
 
 ## Upgrade Scripts
 
-The repository includes intelligent upgrade scripts for both fresh and existing installations:
-
-- **`upgrade.sh`** - Linux/macOS installation and migration
-- **`upgrade.ps1`** - Windows PowerShell installation and migration
-
-Both scripts:
-- Detect fresh/v4.x/v2.0 installations automatically
-- Preserve all project data during migration
-- Create backups before any destructive operations
-- Support unattended mode with `--yes` flag
+The repository ships `upgrade.sh` (Linux/macOS) and `upgrade.ps1` (Windows), but both still target the pre-v2 layout and repos and are not yet a working upgrade path for this release. A v2-aware rewrite is planned as a separate workstream. Until then, use the manual upgrade steps above: replace `UDO Framework/` with a fresh clone of `https://github.com/carderel/UDO-v2.0` and leave `UDO Project/` untouched.
 
 ## Multi-LLM Coordination
 
@@ -121,9 +106,11 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 
 | Version | Release | Major Features |
 |---------|---------|---|
-| v4.10   | 2026-03-10 | Session transcript enforcement (HS-UDO-013) |
-| v4.9    | 2026-03-08 | Session transcript feature (append-only) |
+| v2.2-dev | in progress | TOOLS/ skills and agents registry, documentation rewrite for the real v2 architecture |
+| v2.1    | 2026-03-10 | Session transcripts, conflict detection refinements |
 | v2.0    | 2026-03-10 | Framework/Project separation, multi-LLM safety |
+
+The legacy v4.x series (v4.9, v4.10, and earlier) was superseded by the v2.0 rewrite above; it is not compatible with this repository and is not maintained.
 
 ## Contributing
 

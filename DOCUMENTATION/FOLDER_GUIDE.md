@@ -204,19 +204,7 @@ It only runs in Claude Code. If you're on a different LLM CLI, use `python3 vali
 
 ### "How do I upgrade UDO?"
 
-Run the upgrade script from your project root:
-
-**Mac/Linux:**
-```bash
-./upgrade.sh
-```
-
-**Windows:**
-```powershell
-.\upgrade.ps1
-```
-
-This replaces `UDO Framework/` wholesale with the latest version and never touches `UDO Project/`.
+The bundled `upgrade.sh` / `upgrade.ps1` scripts predate the current two-folder layout and are being redesigned in a separate workstream. Until they ship, upgrade manually: back up your project, replace the `UDO Framework/` folder with the one from a fresh clone of `https://github.com/carderel/UDO-v2.0`, and leave `UDO Project/` untouched.
 
 ### "How do I check I'm following protocol correctly?"
 
