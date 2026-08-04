@@ -442,6 +442,9 @@ Ended: [timestamp]
 ## Blockers/Issues
 - [any problems encountered]
 
+## Lessons
+- [lesson learned this session, or "none"]
+
 ## Next Session Should
 1. [First priority]
 2. [Second priority]
@@ -463,10 +466,13 @@ Confirm transcript is at: `.project-catalog/history/YYYY-MM-DD-HHMM-session-tran
 
 ### 3. Final Checkpoint
 
-### 4. Confirm with User
+### 4. Lesson Promotion
+Write any lesson from this session to LESSONS_LEARNED.md, or state "Lessons: none" in the session log. Silence is a protocol gap.
+
+### 5. Confirm with User
 > "Session logged to .project-catalog/sessions/[filename]. Checkpoint created. Ready to end."
 
-**DO NOT end a session without completing all 4 steps.**
+**DO NOT end a session without completing all 5 steps.**
 
 ---
 

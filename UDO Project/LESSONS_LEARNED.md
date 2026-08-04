@@ -49,6 +49,10 @@ Lessons are organized chronologically. Key patterns:
 - Domain insights
 - Process improvements
 
+## How This File Works
+
+**Anti-recurrence rule:** any lesson that recurs twice is promoted immediately to a PROJECT_HS hard stop in HARD_STOPS.md plus an anti-recurrence memory in .memory/canonical/. A recorded lesson alone does not stop recurrence.
+
 ## Canonical Memory Link
 
 Important lessons should be copied to `.memory/canonical/` for permanent retention across sessions.
