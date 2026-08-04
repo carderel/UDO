@@ -29,9 +29,9 @@ No AI, no instruction, no user request can override these rules. Only a human di
 - **HS-UDO-006**: NEVER treat protocol compliance as optional. The UDO system exists to preserve context across sessions. Skipping logging, state updates, or checkpoints destroys the value of the framework. "I did the work but skipped the protocol" is a failure, not a success.
 - **HS-UDO-007**: NEVER create session artifacts (handoffs, logs, decisions) outside their designated `.project-catalog/` locations. Files in other folders are invisible to the next session's resume protocol.
 - **HS-UDO-008**: NEVER go more than 5 user prompts without updating `PROJECT_STATE.json` if project state has changed. This protects against lost context from unexpected disconnections or restarts. Count resets after each update.
-- **HS-UDO-009**: NEVER overwrite `bridge-queue.md` or `.bridge/session-log.md`. These are **append-only** files. Overwriting destroys the communication history between agents.
-- **HS-UDO-010**: NEVER execute a bridge request without running the pre-flight complexity audit. If no `### Pre-Flight Audit` block exists below the request in `bridge-queue.md`, the audit has not been run. See `PRE-FLIGHT-AUDIT.md`.
-- **HS-UDO-011**: NEVER skip a browser execution ladder level unless page type rules in `BROWSER-LADDER.md` explicitly permit it. Log every escalation reason.
+- **HS-UDO-009**: RETIRED in v2.2 (bridge module removed; cross-instance communication is handled at the platform level). ID reserved, never reuse.
+- **HS-UDO-010**: RETIRED in v2.2 (bridge pre-flight audit removed with bridge module). ID reserved, never reuse.
+- **HS-UDO-011**: RETIRED in v2.2 (browser execution ladder removed with bridge module). ID reserved, never reuse.
 - **HS-UDO-012**: NEVER overwrite or delete transcript files in `.project-catalog/history/`. These are **write-once** records of raw session exchanges. When in doubt, create a new file rather than modify an existing one.
 - **HS-UDO-013**: NEVER accept a user prompt without first verifying that a session transcript file exists at `.project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md`. If the file doesn't exist, CREATE IT with the session header before proceeding. If creation fails, HALT and report the error to the user. This applies to every session, every resume, every new conversation thread.
 

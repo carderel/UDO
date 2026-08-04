@@ -32,7 +32,6 @@
     "session_logging": "Complete session tracking and handoff protocol",
     "decision_logging": "Rationale capture for all significant decisions",
     "checkpoint_system": "State snapshots for recovery and versioning",
-    "bridge_protocol": "Multi-agent coordination via .bridge/",
     "protocol_compliance": "Strict adherence to framework hard stops"
   },
   "framework_inheritance": {

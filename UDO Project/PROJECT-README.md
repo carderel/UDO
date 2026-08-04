@@ -75,7 +75,6 @@ See `../UDO Framework/COMMANDS.md` for available operations:
 - `bu` - Backup (full mid-session save)
 - `h` - Handoff (session end protocol)
 - `r` - Resume (continue from checkpoint)
-- `br` - Bridge request (multi-agent coordination)
 
 ## Important Files & Directories
 

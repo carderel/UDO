@@ -104,7 +104,6 @@ Complete these orientation steps:
 4. **Check lessons:** `LESSONS_LEARNED.md` (mistakes to avoid)
 5. **Know your environment:** `CAPABILITIES.json`
 6. **Check recent sessions:** `.project-catalog/sessions/` (most recent file)
-7. **Check bridge status:** `.bridge/bridge-state.json` (if bridge module is active)
 
 ## Then Give Your Orientation Report:
 
@@ -162,9 +161,6 @@ Complete these orientation steps:
 | `cp` | Checkpoint this |
 | `bf` | Backfill sessions |
 | `cc` | Compliance check |
-| `br` | Bridge request |
-| `cb` | Check bridge |
-| `bs` | Bridge status |
 | `bu` | Backup (full mid-session save) |
 
 ---

@@ -272,8 +272,6 @@ If unclear which mode applies, use this test:
 □ Am I in the right mode? (RC for analysis, Persona for delivery)
 □ If in Persona mode, do I have a handoff packet?
 □ Am I maintaining the session transcript? (appending to .project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md)
-□ If bridge is active, have I checked for pending bridge responses?
-□ If handling a bridge request, have I run the pre-flight audit?
 ```
 
 **If any answer is "no" when it should be "yes" → STOP and fix it.**
@@ -375,7 +373,7 @@ If downgrade fails partway:
 
 | User Says | What AI Does |
 |-----------|--------------|
-| `Backup` | Run ALL backup/documentation protocols: update PROJECT_STATE.json, create/update session log, archive session transcript, create checkpoint, reset prompt counter, check bridge state, log undocumented decisions, flush working memory. Confirm when complete. |
+| `Backup` | Run ALL backup/documentation protocols: update PROJECT_STATE.json, create/update session log, archive session transcript, create checkpoint, reset prompt counter, log undocumented decisions, flush working memory. Confirm when complete. |
 | `Back it up` | Same as Backup |
 | `Save state` | Same as Backup |
 
@@ -404,17 +402,6 @@ If downgrade fails partway:
 |-----------|--------------|
 | `Compliance check` | Run self-check, report any gaps |
 | `Catch up logging` | Create any missing logs/checkpoints/decisions |
-
-### Bridge Commands
-
-| User Says | What AI Does |
-|-----------|--------------|
-| `Bridge request [description]` | Write structured request to `.bridge/bridge-queue.md` |
-| `Check bridge` | Read `bridge-queue.md` for responses, apply results |
-| `Bridge status` | Read `bridge-state.json`, report status |
-| `Bridge log` | Show recent entries from `.bridge/session-log.md` |
-| `Enable bridge` | Activate bridge module, initialize state |
-| `List adapters` | Show available adapters in `.bridge/adapters/` |
 
 ---
 
@@ -498,10 +485,6 @@ Confirm transcript is at: `.project-catalog/history/YYYY-MM-DD-HHMM-session-tran
 | No checkpoint for 5+ todos | HALT, create checkpoint immediately |
 | **Persona mode without handoff** | **HALT, require RC analysis first** |
 | **Confidence stated without evidence** | **HALT, apply RC constraints** |
-| Bridge request pending > 30 min | Flag for human attention, update bridge-state.json |
-| Bridge error_state flag true | HALT bridge requests, escalate to human |
-| Pre-flight complexity score > 10 | HALT, break into separate requests or escalate to human |
-| Browser ladder reaches Level 5 | Flag to user, all automated options exhausted, request static file |
 
 ---
 
@@ -521,9 +504,6 @@ Analysis → RC Mode. Delivery → Persona Mode. Never mix.
 
 ### 3. Environment Awareness
 Check `CAPABILITIES.json` before assigning tasks.
-
-### 3.5. Bridge Awareness
-If `.bridge/` exists and has active adapters, check `bridge-state.json` during resume. Before attempting tasks outside your capabilities (per `CAPABILITIES.json`), check if a bridge adapter can handle it. Follow error escalation: self-resolve (2 attempts) → bridge request → human intervention. Before executing any bridge request, run the pre-flight complexity audit (`PRE-FLIGHT-AUDIT.md`). For browser-based reads, follow the browser execution ladder (`BROWSER-LADDER.md`). See `BRIDGE-PROTOCOL.md` for full details.
 
 ### 4. State Sovereignty
 All project state flows through `PROJECT_STATE.json`. Read before acting. Update after completing.
@@ -571,13 +551,12 @@ Check `NON_GOALS.md` before expanding scope.
 4. Read `/UDO Project/PROJECT_STATE.json`
 5. Read `/UDO Project/LESSONS_LEARNED.md` (active lessons only)
 6. Read most recent session log from `/UDO Project/.project-catalog/sessions/`
-7. If `/UDO Project/.bridge/` exists: Read `bridge-state.json`, check for pending requests/responses
-8. Run compliance self-check
-9. Give oversight report
-10. If today's transcript exists and has content:
+7. Run compliance self-check
+8. Give oversight report
+9. If today's transcript exists and has content:
     Ask user: "Transcript exists from [timestamp]. Review it for additional context? (y/n)"
     Only read if user confirms.
-11. Ask: "Ready to continue with [next todo]?"
+10. Ask: "Ready to continue with [next todo]?"
 
 ### Deep Resume (`Deep resume`)
 1. Everything in Quick Resume, plus:
@@ -586,8 +565,7 @@ Check `NON_GOALS.md` before expanding scope.
 4. Read last 3 session logs from `/UDO Project/.project-catalog/sessions/`
 5. Check for any compliance gaps
 6. Check for orphaned handoff packets in `/UDO Project/.project-catalog/handoffs/`
-7. If `/UDO Project/.bridge/` exists: Read last 3 entries of `/UDO Project/.bridge/session-log.md`
-8. Give detailed oversight report with recent history
+7. Give detailed oversight report with recent history
 
 ---
 

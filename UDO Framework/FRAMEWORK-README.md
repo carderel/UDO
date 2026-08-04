@@ -22,7 +22,6 @@ The UDO Framework is the immutable core of the Universal Dynamic Orchestrator. T
 - **HANDOFF_PROMPT.md** - Template for agent handoff prompts
 
 ### Infrastructure
-- **.bridge/** - AI-agnostic bridge protocol for multi-agent coordination
 - **.templates/** - Reusable templates for agents, projects, and components
 - **.takeover/** - Agent takeover templates and procedures
 - **.tools/** - Framework tools and utilities

@@ -12,7 +12,7 @@ This is the immutable core framework for the Universal Dynamic Orchestrator (UDO
 ## What's Included
 
 - **Core Protocols**: Session management, reasoning standards, evidence requirements
-- **Infrastructure**: Bridge for multi-agent coordination, templates for standardization
+- **Infrastructure**: Templates for standardization
 - **Tools & Utilities**: Reusable components for agents and projects
 - **Documentation**: Complete specification and guidelines
 

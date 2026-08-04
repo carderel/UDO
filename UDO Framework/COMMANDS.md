@@ -33,10 +33,9 @@
 3. **Archive session transcript** — append archive marker to `.project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md`
 4. **Create checkpoint** — save progress snapshot to `.checkpoints/`
 5. **Reset prompt counter** — `prompt_counter.count_since_last_state_update` → 0
-6. **Check bridge state** — if bridge active, update `.bridge/bridge-state.json` if needed
-7. **Log decisions** — any undocumented decisions get written to `.project-catalog/decisions/`
-8. **Flush working memory** — anything in conversation that should be in `.memory/working/` gets written
-9. **Confirm** — report: "Backup complete. State updated. Session logged. Checkpoint created."
+6. **Log decisions** — any undocumented decisions get written to `.project-catalog/decisions/`
+7. **Flush working memory** — anything in conversation that should be in `.memory/working/` gets written
+8. **Confirm** — report: "Backup complete. State updated. Session logged. Checkpoint created."
 
 ## Mode Control
 
@@ -91,19 +90,6 @@
 | `Create agent [name]` | Manually create a specialist agent |
 | `Archive agent [name]` | Move agent to archive |
 
-## Bridge (Cross-Agent Communication)
-
-| Command | What It Does |
-|---------|--------------|
-| `Bridge request [description]` | Write structured request for an external agent to `.bridge/bridge-queue.md` |
-| `Check bridge` | Read `bridge-queue.md` for new responses, apply results |
-| `Bridge status` | Report `bridge-state.json` status |
-| `Bridge log` | Show recent `.bridge/session-log.md` entries |
-| `Enable bridge` | Activate bridge, initialize files |
-| `List adapters` | Show available bridge adapters in `.bridge/adapters/` |
-| `Add adapter [platform]` | Set up a new bridge adapter |
-| `Pre-flight [REQ-XXXX]` | Manually run pre-flight complexity audit on a specific request |
-
 ## Memory
 
 | Command | What It Does |
@@ -145,11 +131,7 @@
 | `cc` | Compliance check |
 | `rc` | RC mode |
 | `st` | Session transcript (verify exists, view current, required before work starts per HS-UDO-013) |
-| `br` | Bridge request |
-| `cb` | Check bridge |
-| `bs` | Bridge status |
 | `bu` | Backup |
-| `pf` | Pre-flight |
 
 ---
 

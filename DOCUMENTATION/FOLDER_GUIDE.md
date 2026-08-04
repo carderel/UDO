@@ -77,7 +77,6 @@ This is the entry point. It tells AI to read protocols, check state, and begin w
 | `.project-catalog/history/` | Live session transcripts | AI agent | Real-time during session |
 | `.memory/` | Persistent facts | AI agent | When learning/remembering |
 | `.agents/` | Specialized AI personas | AI orchestrator | When delegating work |
-| `.bridge/` | Cross-agent communication | External agents | When coordinating with other LLMs |
 | `.outputs/` | Deliverables & drafts | AI + human | When creating/reviewing work |
 | `.checkpoints/` | Progress snapshots | AI agent | If context is lost, resume from checkpoint |
 | `.rules/` | Project constraints | AI agent | Session start (compliance check) |
