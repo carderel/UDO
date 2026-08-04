@@ -18,7 +18,7 @@ UDO v2.0 introduces a dual-folder structure for safe multi-AI collaboration:
     └── [all protocol files]
 
 /UDO Project/                ← Your working context (where you work)
-    ├── HARD_STOPS.md        (Extends Framework, adds HS-UDO-014+ for your project)
+    ├── HARD_STOPS.md        (Extends Framework, adds PROJECT_HS_003+ for your project)
     ├── PROJECT_STATE.json   (Your goal, phase, todos)
     ├── .project-catalog/    (Sessions, decisions, history)
     ├── .memory/             (Your facts and working notes)
@@ -283,79 +283,6 @@ Lite exists because a 1-session project whose only deliverable is a clean resume
 
 ---
 
-## Downgrading from v2.0 to v4.x
-
-If you need to revert to UDO v4.x, follow this procedure carefully to avoid data loss.
-
-### Prerequisites
-
-- You must have a backup created by the v2.0 upgrade process
-- All pending work should be committed or saved
-- You understand v2.0 project structure will not be compatible with v4.x
-
-### Downgrade Steps
-
-1. **List available backups:**
-   ```bash
-   ls -la .udo-backup-*
-   # Output: .udo-backup-2026-03-10-120000 (timestamp when upgrade was run)
-   ```
-
-2. **Verify backup integrity:**
-   ```bash
-   ls -la .udo-backup-2026-03-10-120000/UDO/VERSION
-   # Should show the v4.x VERSION file
-   ```
-
-3. **Remove v2.0 structure:**
-   ```bash
-   rm -rf "UDO Framework" "UDO Project"
-   ```
-
-4. **Restore v4.x structure:**
-   ```bash
-   mv .udo-backup-2026-03-10-120000/UDO UDO
-   ```
-
-5. **Verify restoration:**
-   ```bash
-   cat UDO/VERSION  # Should show 4.x version
-   ls -la UDO/PROJECT_STATE.json  # Should exist
-   ```
-
-6. **Revert upgrade scripts:**
-   - Use v4.x version of `upgrade.sh` and `upgrade.ps1` from your backup
-   - Replace current upgrade scripts with v4.x versions
-
-7. **Test the restored project:**
-   - Read ORCHESTRATOR.md from restored structure
-   - Verify session logs in `.project-catalog/sessions/`
-   - Confirm PROJECT_STATE.json loads correctly
-
-### Recovery from Failed Downgrade
-
-If downgrade fails partway:
-
-1. Stop any running processes
-2. If you still have `.udo-backup-*` folder:
-   ```bash
-   rm -rf UDO
-   mv .udo-backup-2026-03-10-120000/UDO UDO
-   ```
-3. If backup is lost, restore from git:
-   ```bash
-   git checkout HEAD -- UDO
-   ```
-
-### Why Downgrade is Not Recommended
-
-- v2.0 project data is not compatible with v4.x expectations
-- Session logs and project state will not be recognized
-- Some v2.0 features (like conflict detection in HS-UDO-015) don't exist in v4.x
-- Consider upgrading to v2.0 permanently instead
-
----
-
 ## SESSION COMMANDS
 
 ### Starting Sessions
@@ -417,7 +344,7 @@ Implements the Session Records mandate above (see Compliance Requirements > Sess
 Before ending ANY session, you **MUST**:
 
 ### 1. Create Session Log
-File: `.project-catalog/sessions/YYYY-MM-DD-HH-MM-session.md`
+File: `.project-catalog/sessions/YYYY-MM-DD-HHMM-session.md`
 
 ```markdown
 # Session: YYYY-MM-DD HH:MM
@@ -567,27 +494,28 @@ On any task, in order:
 
 ### Quick Resume (`Resume`)
 1. Read `/UDO Framework/HARD_STOPS.md` (immutable protocol rules)
-2. Read `/UDO Project/HARD_STOPS.md` (project-specific extensions, including HS-UDO-014+ and the PROJECT_HS_002 capability check)
-3. **Agent sync:** if the harness supports custom agents, regenerate its agent files from `.agents/` (e.g. copy to `.claude/agents/` on Claude Code). Never edit harness copies; `validate.py` flags drift.
-4. Read `/UDO Framework/REASONING_CONTRACT.md` (skim key constraints)
-5. **Create Session Transcript (see Session Records, HS-UDO-013)**
+2. Read `/UDO Project/HARD_STOPS.md` (project-specific extensions, including PROJECT_HS_003+ and the PROJECT_HS_002 capability check)
+3. **Declare delegation capability** (see START_HERE orientation step 2) and update the `delegation` block in `/UDO Project/CAPABILITIES.json`. PROJECT_HS_002 Step 0 depends on this being current.
+4. **Agent sync:** if the harness supports custom agents, regenerate its agent files from `.agents/` (e.g. copy to `.claude/agents/` on Claude Code). Never edit harness copies; `validate.py` flags drift.
+5. Read `/UDO Framework/REASONING_CONTRACT.md` (skim key constraints)
+6. **Create Session Transcript (see Session Records, HS-UDO-013)**
    - This is a new session: create `/UDO Project/.project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md` with the session header (including `Project: [project_id from PROJECT_STATE]`) before accepting the first prompt.
    - If creation FAILS: HALT. Report error to user. Do not proceed until file is writable.
-6. Read `/UDO Project/PROJECT_STATE.json`
-7. Read `/UDO Project/TOPICS.md`; report status per active slug
-8. Read `/UDO Project/LESSONS_LEARNED.md` (active lessons only)
-9. Read most recent session log from `/UDO Project/.project-catalog/sessions/`
-10. Run compliance self-check
-11. Give oversight report
-12. If a transcript from an earlier session today exists and has content:
+7. Read `/UDO Project/PROJECT_STATE.json`
+8. Read `/UDO Project/TOPICS.md`; report status per active slug
+9. Read `/UDO Project/LESSONS_LEARNED.md` (active lessons only)
+10. Read most recent session log from `/UDO Project/.project-catalog/sessions/`
+11. Run compliance self-check
+12. Give oversight report
+13. If a transcript from an earlier session today exists and has content:
     Ask user: "Transcript exists from [timestamp]. Review it for additional context? (y/n)"
     Only read if user confirms. Do not append to it; it belongs to a prior session.
-13. Ask: "Ready to continue with [next todo]?"
+14. Ask: "Ready to continue with [next todo]?"
 
 ### Deep Resume (`Deep resume`)
 1. Everything in Quick Resume, plus:
 2. Read `/UDO Project/PROJECT_META.json`
-3. Read `/UDO Project/CAPABILITIES.json`
+3. Read `/UDO Project/CAPABILITIES.json`; re-confirm the delegation-capability declaration from Quick Resume step 3 is still current and correct it if the harness capability has changed.
 4. **Confirm agent sync:** cross-check `/UDO Project/.agents/AGENTS_INDEX.md` against the harness agent directory; if drift remains after the Quick Resume sync, resolve it now.
 5. Read last 3 session logs from `/UDO Project/.project-catalog/sessions/`
 6. Check for any compliance gaps

@@ -95,7 +95,7 @@
 
 | Command | What It Does |
 |---------|--------------|
-| `Refresh catalog` | Re-fetch the source README and regenerate `TOOLS/CATALOG.md` |
+| `Refresh catalog` | Re-fetch the source README and regenerate both `TOOLS/CATALOG.md` and `TOOLS/CATALOG-AGENTS.md` |
 
 ## Memory
 

@@ -58,9 +58,6 @@ UDO Project/User Uploads/*
 UDO Project/.project-catalog/backups/*
 !UDO Project/.project-catalog/backups/.gitkeep
 
-UDO Project/.checkpoints/*
-!UDO Project/.checkpoints/.gitkeep
-
 # Do NOT ignore .project-catalog itself - it contains important metadata
 # Do NOT ignore .memory/canonical - it's the source of truth
 # Do NOT ignore PROJECT_STATE.json - it's tracked

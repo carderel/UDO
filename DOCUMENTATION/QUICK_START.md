@@ -73,7 +73,7 @@ That's it. You're now in a UDO session.
 
 ## Step 4 (optional, recommended for Claude Code): Turn on the Enforcement Hook
 
-If you're using Claude Code, `UDO Project/.claude/settings.json` already wires up `UDO Project/.udo/udo_hook.py`. It runs automatically once you start Claude Code from the project folder: no extra install step. The hook injects project state at session start, shows a drift status line on each prompt, and blocks session end if `PROJECT_STATE.json` or today's session log is stale.
+If you're using Claude Code, the repo root `.claude/settings.json` already wires up `UDO Project/.udo/udo_hook.py`. It runs automatically once you start Claude Code from the project folder: no extra install step. The hook injects project state at session start, shows a drift status line on each prompt, and blocks session end if `PROJECT_STATE.json` or today's session log is stale.
 
 This is optional. It only works with Claude Code. Any other LLM CLI can still follow the full protocol; use `python3 validate.py` (see below) to check compliance instead.
 

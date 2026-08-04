@@ -1,5 +1,7 @@
 # UDO v2.0: Universal Dynamic Orchestrator
 
+**Current version: 2.2**
+
 **Multi-LLM Safe Session Orchestration Framework**
 
 UDO v2.0 solves a critical problem: **AIs accidentally working in framework code instead of project code**.

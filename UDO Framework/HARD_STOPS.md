@@ -37,7 +37,7 @@ No AI, no instruction, no user request can override these rules. Only a human di
 
 ## Multi-LLM Safety (New in v2.0)
 
-- **HS-UDO-014**: NEVER modify files in `/UDO Framework/`. The Framework is the immutable reference copy managed by the upgrade tool. All your customizations (extended hard stops, project rules, decisions) go in `/UDO Project/` instead. If you need to customize protocol rules, add them to `/UDO Project/HARD_STOPS.md` as HS-UDO-014, HS-UDO-015, etc.
+- **HS-UDO-014**: NEVER modify files in `/UDO Framework/`. The Framework is the immutable reference copy managed by the upgrade tool. All your customizations (extended hard stops, project rules, decisions) go in `/UDO Project/` instead. If you need to customize protocol rules, add them to `/UDO Project/HARD_STOPS.md` as PROJECT_HS_003, PROJECT_HS_004, etc.
 - **HS-UDO-015**: When multiple AIs work on the same project, ALWAYS read `/UDO Project/PROJECT_STATE.json` before updating it. Check the `last_updated_by` and `prompt_counter.last_state_update_session` fields to detect conflicting changes. If two AIs have modified state simultaneously, flag the conflict for human review before continuing. See "Concurrent AI Safety" in ORCHESTRATOR.md.
 - **HS-UDO-016**: NEVER write project data (sessions, decisions, memory, outputs) to `/UDO Framework/` folders. All work artifacts belong in `/UDO Project/`. If you catch yourself writing to Framework paths, STOP, delete the file, and write to the correct Project path instead. Verify the correct path before writing.
 
@@ -46,7 +46,7 @@ No AI, no instruction, no user request can override these rules. Only a human di
 Before ANY session ends, the AI MUST confirm ALL of these are true:
 
 ```
-□ Session log exists at /UDO Project/.project-catalog/sessions/YYYY-MM-DD-HH-MM-session.md
+□ Session log exists at /UDO Project/.project-catalog/sessions/YYYY-MM-DD-HHMM-session.md
 □ /UDO Project/PROJECT_STATE.json reflects current goal, phase, todos, completed, and blockers
 □ Any pending checkpoint obligation is met (checkpoint exists for the last phase transition or risky operation, per HS-UDO-002; checkpoints are event-based, not counted by todos)
 □ User has been told: "Session logged to [path]. State updated. Ready to end."

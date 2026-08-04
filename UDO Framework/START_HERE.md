@@ -25,8 +25,6 @@ Your Project Root
 │   └── [all other protocol files]
 │
 └── /UDO Project/                   ← Your working context
-    ├── START_HERE.md               (Read from Framework, can be empty)
-    ├── ORCHESTRATOR.md             (Reference Framework)
     ├── HARD_STOPS.md               (Extend Framework rules here)
     ├── PROJECT_STATE.json
     ├── .project-catalog/           (sessions, decisions, history)
@@ -84,7 +82,7 @@ cp -r /template/UDO\ Framework ./UDO\ Framework  # ✓ CORRECT
 Do not proceed until you have:
 1. Read ORCHESTRATOR.md completely
 2. Understood the SESSION LOGGING requirement (you MUST log every session)
-3. Understood CHECKPOINT triggers (auto-save after 3 todos, phase completions)
+3. Understood CHECKPOINT triggers (checkpoint at phase completion, before risky operations, and at session end)
 4. Understood when to CREATE AGENTS (2+ distinct personas needed)
 5. Understood the MEMORY SYSTEM (canonical/working/disposable)
 6. Understood the DUAL-MODE SYSTEM (RC mode for analysis, Persona mode for delivery)
@@ -190,7 +188,7 @@ Before starting ANY work, confirm you will:
 - [ ] Write/append to transcript in real-time after each response (before accepting next prompt)
 - [ ] Log this session to `/UDO Project/.project-catalog/sessions/` before ending
 - [ ] Append archive marker to transcript when ending session
-- [ ] Auto-checkpoint after every 3 completed todos
+- [ ] Checkpoint at phase completion, before risky operations, and at session end
 - [ ] Create agents if task requires 2+ distinct personas
 - [ ] Document major decisions in `/UDO Project/.project-catalog/decisions/`
 - [ ] Use memory system for facts discovered during work in `/UDO Project/.memory/`

@@ -61,7 +61,7 @@ Read CAPABILITIES.json `delegation` block (written at session start per START_HE
 - Valid delegates, in preference order:
   1. Installed project agents (`.agents/*.md`, synced to the harness)
   2. Harness-native agents (e.g. Explore, general-purpose, Plan) for search/read/plan work
-  3. If neither fits: check the agents catalog (AGENTS_INDEX/CATALOG-AGENTS, see ORCHESTRATOR "Capability Discovery"), offer install; else create from `.templates/agent.md`
+  3. If neither fits: check the agents catalog (AGENTS_INDEX/CATALOG-AGENTS, see ORCHESTRATOR "Capability Discovery"), offer install; else create from `../UDO Framework/.templates/agent.md`
 - Meta-work needs no agent: orchestration, status updates, direct factual answers, audit-trail writes.
 
 **POST-RESPONSE VERIFICATION (when ACTIVE), report exactly one:**

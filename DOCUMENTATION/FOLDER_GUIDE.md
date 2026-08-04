@@ -127,7 +127,7 @@ Subfolders (`.templates/`, `.takeover/`, `.tools/`) hold reusable templates and 
 | `.outputs/` | Deliverables and drafts | Written when creating or reviewing work |
 | `.inputs/` | Source materials and requirements | Read when starting new work |
 | `.udo/` | The enforcement hook (`udo_hook.py`) and its runtime state | Runs automatically if you're on Claude Code |
-| `.claude/` | Claude Code settings that wire up the hook, and synced agent copies | Read by Claude Code, not by other LLM CLIs |
+| `.claude/agents/` | Synced Claude Code agent copies (Claude Code settings that wire up the hook live at the repo root `.claude/settings.json`, not here) | Read by Claude Code, not by other LLM CLIs |
 
 ### Core files in UDO Project/
 
@@ -157,7 +157,7 @@ Four seed personas ship with every new project:
 
 ### The Enforcement Hook (Claude Code only)
 
-`UDO Project/.udo/udo_hook.py`, wired through `UDO Project/.claude/settings.json`, is an optional but recommended enforcement layer for Claude Code. It:
+`UDO Project/.udo/udo_hook.py`, wired through the repo root `.claude/settings.json`, is an optional but recommended enforcement layer for Claude Code. It:
 - injects `PROJECT_STATE.json` context at session start,
 - shows a drift status line on each prompt,
 - hard-blocks session end (the Stop event) if `PROJECT_STATE.json` or today's session log is stale.
