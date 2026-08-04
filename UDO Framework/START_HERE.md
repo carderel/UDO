@@ -41,7 +41,7 @@ Your Project Root
 |------|--------------|-----------|
 | Core orchestration rules | `/UDO Framework/ORCHESTRATOR.md` | Read-only reference |
 | Hard stops (immutable) | `/UDO Framework/HARD_STOPS.md` | Reference in `/UDO Project/HARD_STOPS.md` |
-| Hard stops (project-specific) | N/A | Add HS-UDO-014 through HS-UDO-016 in `/UDO Project/HARD_STOPS.md` |
+| Hard stops (project-specific) | N/A | Add project-specific hard stops in `/UDO Project/HARD_STOPS.md` (see that file for current numbering) |
 | Session logs | N/A | `/UDO Project/.project-catalog/sessions/` |
 | Decisions | N/A | `/UDO Project/.project-catalog/decisions/` |
 | Memory (canonical) | N/A | `/UDO Project/.memory/canonical/` |

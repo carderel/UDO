@@ -13,7 +13,7 @@ UDO v2.0 introduces a dual-folder structure for safe multi-AI collaboration:
 ```
 /UDO Framework/              ← Immutable reference (upgraded automatically)
     ├── ORCHESTRATOR.md      (Defines the protocol)
-    ├── HARD_STOPS.md        (HS-UDO-001 through HS-UDO-013)
+    ├── HARD_STOPS.md        (see file for the authoritative list; some IDs are retired tombstones)
     ├── START_HERE.md
     └── [all protocol files]
 
@@ -29,7 +29,7 @@ UDO v2.0 introduces a dual-folder structure for safe multi-AI collaboration:
 
 1. **Read Framework rules first, then Project rules** — When you resume, read `/UDO Framework/HARD_STOPS.md` first for immutable protocol rules, then `/UDO Project/HARD_STOPS.md` for project-specific extensions.
 
-2. **Project rules inherit and extend Framework rules** — You cannot override HS-UDO-001 through HS-UDO-013, but you can add project-specific rules (HS-UDO-014+) in `/UDO Project/HARD_STOPS.md`.
+2. **Project rules inherit and extend Framework rules**: you cannot override the framework hard stops (see HARD_STOPS.md for the authoritative list; some IDs are retired tombstones), but you can add project-specific rules in `/UDO Project/HARD_STOPS.md`.
 
 3. **Never modify Framework files** — The Framework is read-only for your project. All your customizations go in `/UDO Project/`.
 

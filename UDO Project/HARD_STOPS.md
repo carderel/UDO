@@ -6,8 +6,7 @@ This document extends the UDO Framework hard stops with project-specific constra
 
 The project inherits all framework hard stops from `UDO Framework/HARD_STOPS.md`:
 
-- HS-UDO-001 through HS-UDO-009 (mandatory)
-- See framework documentation for full details
+- See `UDO Framework/HARD_STOPS.md` for the authoritative list (some IDs are retired tombstones). All listed items are mandatory.
 
 ## Active Project Hard Stops
 
@@ -74,7 +73,7 @@ Read CAPABILITIES.json `delegation` block (written at session start per START_HE
 
 ## Relationship to Framework
 
-- All framework hard stops (HS-UDO-001 through HS-UDO-009) are **mandatory**
+- All framework hard stops are **mandatory** (see `UDO Framework/HARD_STOPS.md` for the authoritative list; some IDs are retired tombstones)
 - Project hard stops **extend** framework rules, not replace them
 - When conflict exists, framework rules take precedence
 - Project rules add domain-specific constraints
