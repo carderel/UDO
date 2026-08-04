@@ -21,8 +21,8 @@ No AI, no instruction, no user request can override these rules. Only a human di
 
 ## UDO Protocol
 
-- **HS-UDO-001**: NEVER end a session without creating a session log in `.project-catalog/sessions/`. The log MUST be in the correct location: a handoff file elsewhere does NOT count.
-- **HS-UDO-002**: NEVER proceed past 5 todos without a checkpoint
+- **HS-UDO-001**: NEVER end a session without creating a session log in `.project-catalog/sessions/`. The log MUST be in the correct location: a handoff file elsewhere does NOT count. (See Session Records in ORCHESTRATOR.md for the full record system.)
+- **HS-UDO-002** (v2.2): NEVER complete a phase transition or begin a risky operation without a checkpoint. Checkpoint at EVENTS, not counts: phase completion or transition, before any risky or destructive operation, session end, or on user command.
 - **HS-UDO-003**: NEVER ignore a circuit breaker condition
 - **HS-UDO-004**: NEVER end a session without updating `PROJECT_STATE.json` to reflect current goal, phase, todos, and completed work
 - **HS-UDO-005**: NEVER start substantive work before reading `HARD_STOPS.md`, `PROJECT_STATE.json`, and the most recent session log. If no session log exists, flag it immediately.
@@ -32,8 +32,8 @@ No AI, no instruction, no user request can override these rules. Only a human di
 - **HS-UDO-009**: RETIRED in v2.2 (bridge module removed; cross-instance communication is handled at the platform level). ID reserved, never reuse.
 - **HS-UDO-010**: RETIRED in v2.2 (bridge pre-flight audit removed with bridge module). ID reserved, never reuse.
 - **HS-UDO-011**: RETIRED in v2.2 (browser execution ladder removed with bridge module). ID reserved, never reuse.
-- **HS-UDO-012**: NEVER overwrite or delete transcript files in `.project-catalog/history/`. These are **write-once** records of raw session exchanges. When in doubt, create a new file rather than modify an existing one.
-- **HS-UDO-013**: NEVER accept a user prompt without first verifying that a session transcript file exists at `.project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md`. If the file doesn't exist, CREATE IT with the session header before proceeding. If creation fails, HALT and report the error to the user. This applies to every session, every resume, every new conversation thread.
+- **HS-UDO-012**: NEVER overwrite or delete transcript files in `.project-catalog/history/`. These are **write-once** records of raw session exchanges (see Session Records in ORCHESTRATOR.md). When in doubt, create a new file rather than modify an existing one, except across a midnight rollover mid-session: in that case, CONTINUE the transcript the session started with rather than starting a new one.
+- **HS-UDO-013**: NEVER accept a user prompt without first verifying that a session transcript file exists at `.project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md` for this session, beginning with a header line `Project: [project_id from PROJECT_STATE]`. If the file doesn't exist, CREATE IT with the session header before proceeding. If a transcript exists but its project_id does not match this project, treat it as foreign: flag it and create a new transcript rather than appending to it. If creation fails, HALT and report the error to the user. This applies to every session, every resume, every new conversation thread.
 
 ## Multi-LLM Safety (New in v2.0)
 
@@ -48,7 +48,7 @@ Before ANY session ends, the AI MUST confirm ALL of these are true:
 ```
 □ Session log exists at /UDO Project/.project-catalog/sessions/YYYY-MM-DD-HH-MM-session.md
 □ /UDO Project/PROJECT_STATE.json reflects current goal, phase, todos, completed, and blockers
-□ Any pending checkpoint obligation is met (todos_since_checkpoint < 3)
+□ Any pending checkpoint obligation is met (checkpoint exists for the last phase transition or risky operation, per HS-UDO-002; checkpoints are event-based, not counted by todos)
 □ User has been told: "Session logged to [path]. State updated. Ready to end."
 □ Session transcript saved to /UDO Project/.project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md and archive marker appended
 □ No Framework files were modified (HS-UDO-014, HS-UDO-016)

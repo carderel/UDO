@@ -51,20 +51,12 @@ UDO Project/.memory/disposable/*
 UDO Project/User Uploads/*
 !UDO Project/User Uploads/.gitkeep
 
-# Session data - transient
-UDO Project/.project-catalog/sessions/*
-!UDO Project/.project-catalog/sessions/.gitkeep
-
 # Keep history for recovery
 # UDO Project/.project-catalog/history/* is intentionally NOT ignored
 
 # Backups - exclude large backup files but keep structure
 UDO Project/.project-catalog/backups/*
 !UDO Project/.project-catalog/backups/.gitkeep
-
-# Checkpoints - exclude large checkpoint files
-UDO Project/.project-catalog/checkpoints/*
-!UDO Project/.project-catalog/checkpoints/.gitkeep
 
 UDO Project/.checkpoints/*
 !UDO Project/.checkpoints/.gitkeep

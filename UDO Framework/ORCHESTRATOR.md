@@ -129,18 +129,15 @@ Single-AI projects or sequential work don't require conflict detection, but it's
 
 These are **mandatory behaviors**. Failure to follow these means UDO is not working:
 
-### 1. SESSION LOGGING (MANDATORY)
-You **MUST** create a session log at `.project-catalog/sessions/` before ending ANY session.
-- No exceptions
-- No "I forgot"
-- If session ends without a log, use `Backfill sessions` next time
+### 1. SESSION RECORDS (MANDATORY)
+
+**Session Records (one system, two granularities)**
+- **Transcript** (`.project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md`): append-only, updated after EVERY response (HS-UDO-013). Created before accepting the first prompt. If a session crosses midnight, CONTINUE the transcript it started with; the filename date is the session-start date. One transcript per session, never per calendar day.
+- **Session log** (`.project-catalog/sessions/YYYY-MM-DD-HHMM-session.md`): the distilled summary, created at session end (HS-UDO-001). The Stop gate blocks a clean end without it.
+- Transcripts must begin with a header line `Project: [project_id from PROJECT_STATE]`. A transcript whose project_id does not match this project is foreign; flag it, never append to it.
 
 ### 2. AUTO-CHECKPOINTS (MANDATORY)
-You **MUST** checkpoint after:
-- Every 3 completed todos
-- Every phase completion
-- Before any risky/destructive operation
-- At session end
+Checkpoint at EVENTS, not counts: (a) phase completion or phase transition, (b) before any risky or destructive operation, (c) session end, (d) on user command. HS-UDO-002 (v2.2): NEVER complete a phase transition or begin a risky operation without a checkpoint.
 
 ### 2.5. PROMPT-INTERVAL STATE UPDATES (MANDATORY)
 You **MUST** update `PROJECT_STATE.json` every **5 user prompts** if project state has changed.
@@ -264,14 +261,13 @@ If unclear which mode applies, use this test:
 **Run this check at session start and periodically during work:**
 
 ```
-□ Am I logging this session? (will create file in .project-catalog/sessions/)
-□ Have I checkpointed recently? (after 3 todos or phase completion)
+□ Am I maintaining Session Records? (transcript appended after every response; session log will be created at session end; see Session Records in Compliance Requirements above)
+□ Have I checkpointed at the last event? (phase completion or transition, before a risky operation, session end, or on user command; not by todo count)
 □ Do I need agents? (2+ personas in my todo list)
 □ Am I using memory? (facts go to .memory/, not just conversation)
 □ Am I documenting decisions? (major choices go to .project-catalog/decisions/)
 □ Am I in the right mode? (RC for analysis, Persona for delivery)
 □ If in Persona mode, do I have a handoff packet?
-□ Am I maintaining the session transcript? (appending to .project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md)
 ```
 
 **If any answer is "no" when it should be "yes" → STOP and fix it.**
@@ -407,6 +403,8 @@ If downgrade fails partway:
 
 ## SESSION END PROTOCOL (MANDATORY)
 
+Implements the Session Records mandate above (see Compliance Requirements > Session Records for the rule; this section covers the mechanics).
+
 Before ending ANY session, you **MUST**:
 
 ### 1. Create Session Log
@@ -482,7 +480,7 @@ Confirm transcript is at: `.project-catalog/history/YYYY-MM-DD-HHMM-session-tran
 | Circular handoff detected | HALT, log anomaly |
 | Context usage > 80% | Trigger mandatory archival |
 | No session log for 5+ todos | HALT, run Backfill sessions |
-| No checkpoint for 5+ todos | HALT, create checkpoint immediately |
+| Phase transition or risky operation attempted without a checkpoint | HALT, create checkpoint immediately |
 | **Persona mode without handoff** | **HALT, require RC analysis first** |
 | **Confidence stated without evidence** | **HALT, apply RC constraints** |
 
@@ -543,20 +541,18 @@ Check `NON_GOALS.md` before expanding scope.
 1. Read `/UDO Framework/HARD_STOPS.md` (immutable protocol rules)
 2. Read `/UDO Project/HARD_STOPS.md` (project-specific extensions, including HS-UDO-014+)
 3. Read `/UDO Framework/REASONING_CONTRACT.md` (skim key constraints)
-4. **Verify/Create Session Transcript (MANDATORY — see HS-UDO-013)**
-   - Check: Does `.project-catalog/history/` contain a transcript from TODAY (today's date)?
-   - If YES: Note the filename. Append subsequent prompts/responses to it.
-   - If NO: Create new file `/UDO Project/.project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md` with session header
+4. **Create Session Transcript (see Session Records, HS-UDO-013)**
+   - This is a new session: create `/UDO Project/.project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md` with the session header (including `Project: [project_id from PROJECT_STATE]`) before accepting the first prompt.
    - If creation FAILS: HALT. Report error to user. Do not proceed until file is writable.
-4. Read `/UDO Project/PROJECT_STATE.json`
-5. Read `/UDO Project/LESSONS_LEARNED.md` (active lessons only)
-6. Read most recent session log from `/UDO Project/.project-catalog/sessions/`
-7. Run compliance self-check
-8. Give oversight report
-9. If today's transcript exists and has content:
+5. Read `/UDO Project/PROJECT_STATE.json`
+6. Read `/UDO Project/LESSONS_LEARNED.md` (active lessons only)
+7. Read most recent session log from `/UDO Project/.project-catalog/sessions/`
+8. Run compliance self-check
+9. Give oversight report
+10. If a transcript from an earlier session today exists and has content:
     Ask user: "Transcript exists from [timestamp]. Review it for additional context? (y/n)"
-    Only read if user confirms.
-10. Ask: "Ready to continue with [next todo]?"
+    Only read if user confirms. Do not append to it; it belongs to a prior session.
+11. Ask: "Ready to continue with [next todo]?"
 
 ### Deep Resume (`Deep resume`)
 1. Everything in Quick Resume, plus:
