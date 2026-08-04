@@ -106,11 +106,29 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 
 | Version | Release | Major Features |
 |---------|---------|---|
-| v2.2-dev | in progress | TOOLS/ skills and agents registry, documentation rewrite for the real v2 architecture |
+| v2.2    | 2026-08-04 | Bridge removed, enforcement hooks, TOOLS/ skills and agents registry, documentation rewrite for the real v2 architecture |
 | v2.1    | 2026-03-10 | Session transcripts, conflict detection refinements |
 | v2.0    | 2026-03-10 | Framework/Project separation, multi-LLM safety |
 
 The legacy v4.x series (v4.9, v4.10, and earlier) was superseded by the v2.0 rewrite above; it is not compatible with this repository and is not maintained.
+
+## Changelog
+
+### v2.2 (2026-08-04)
+
+- Bridge module removed
+- Enforcement hooks + `validate.py`
+- Schema v2.2
+- Boundary fix (Framework/Project scope enforcement)
+- Capability declaration
+- Unified records
+- Event checkpoints
+- Lessons split
+- UDO-Lite
+- TOPICS registry
+- Skills + agents registries
+- HS-OUT-001
+- Documentation rewrite
 
 ## Contributing
 
