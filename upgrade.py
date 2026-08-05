@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """UDO upgrade.py - single cross-platform installer/upgrader for the UDO
 markdown/JSON protocol framework (v2.2 layout: "UDO Framework/" + "UDO Project/"
-as siblings at the target root, plus DOCUMENTATION/, TOOLS/, validate.py,
-.claude/, README.md, START_HERE.md, LICENSE, .gitignore).
+as siblings at the target root, plus DOCUMENTATION/, TOOLS/, User Provided
+Files/, validate.py, .claude/, README.md, START_HERE.md, LICENSE, .gitignore).
 
 Usage:
     python3 upgrade.py [TARGET_DIR] [--dry-run] [--yes] [--source PATH_OR_URL]
@@ -56,6 +56,7 @@ FRESH_TOP_LEVEL = [
     "TOOLS",
     "UDO Framework",
     "UDO Project",
+    "User Provided Files",
     "validate.py",
     ".claude",
     "README.md",
@@ -101,6 +102,7 @@ PROJECT_LANE_ADD_IF_ABSENT = [
     "UDO Project/.udo",
     "UDO Project/.project-catalog/STATE_SCHEMA.md",
     "UDO Project/.agents/AGENTS_INDEX.md",
+    "UDO Project/LESSONS_LEARNED.md",
 ]
 
 # Structural directories validate.py hard-requires to exist under
@@ -153,7 +155,6 @@ PROJECT_LANE_PRESERVE = [
     "UDO Project/.rules",
     "UDO Project/.project-catalog/backups",
     "UDO Project/.project-catalog/checkpoints",
-    "UDO Project/LESSONS_LEARNED.md",
     "UDO Project/NON_GOALS.md",
     "UDO Project/User Uploads",
 ]
@@ -214,6 +215,22 @@ def fetch_source(source_arg):
     if not local.is_dir():
         raise UpgradeError(f"--source path does not exist or is not a directory: {local}")
     return local, None
+
+
+def _guard_source_not_target(target, source):
+    """Refuse a --source that resolves to the target itself, or where one of
+    target/source contains the other. Copying a tree into itself (or into an
+    ancestor/descendant of itself) corrupts the copy mid-walk; this must be
+    caught before any mutation, not discovered partway through apply()."""
+    source_resolved = Path(source).resolve()
+    target_resolved = Path(target).resolve()
+    if source_resolved == target_resolved \
+            or target_resolved in source_resolved.parents \
+            or source_resolved in target_resolved.parents:
+        raise UpgradeError(
+            f"--source ({source_resolved}) cannot be the target directory "
+            f"({target_resolved}), nor may one contain the other."
+        )
 
 
 def _download_and_extract(url):
@@ -303,8 +320,17 @@ def detect(target, source_version, forced_mode):
             return DetectResult(mode="upgrade", current_version=version, up_to_date=True)
         return DetectResult(mode="upgrade", current_version=version, up_to_date=False)
 
+    if (target / "UDO Framework").is_dir():
+        raise UpgradeError(
+            f"{target / 'UDO Framework'} exists but {fw_version_path} does not. "
+            "Refusing to guess the installed version. Re-run with an explicit "
+            "--mode fresh|upgrade|migrate|refresh to proceed."
+        )
+
+    # "UDO Framework" is guaranteed not to be a dir here: the guard above
+    # already raised if it were.
     udo_dir = target / "UDO"
-    if not (target / "UDO Framework").is_dir() and udo_dir.is_dir() and (udo_dir / "ORCHESTRATOR.md").is_file():
+    if udo_dir.is_dir() and (udo_dir / "ORCHESTRATOR.md").is_file():
         return DetectResult(mode="migrate", current_version=None, up_to_date=False)
 
     return DetectResult(mode="fresh", current_version=None, up_to_date=False)
@@ -406,7 +432,7 @@ def _manifest_migrate(target):
     for item in V4_PORT_FILES:
         manifest.append(("TRANSFORM", f"UDO/{item} -> UDO Project/{item}"))
     manifest.append(("TRANSFORM", "UDO/PROJECT_STATE.json -> UDO Project/PROJECT_STATE.json"))
-    manifest.append(("ADD", ".project-catalog/decisions/<date>-v4-to-v22-migration-record.md"))
+    manifest.append(("ADD", "UDO Project/.project-catalog/decisions/<date>-v4-to-v22-migration-record.md"))
     manifest.append(("TRANSFORM", f"UDO -> {LEGACY_DIR_NAME}"))
 
     return manifest
@@ -427,11 +453,18 @@ def _backup_ignore(dir_path, names):
 def backup(target):
     """Copy target into target/.udo-backup-<timestamp>/, excluding
     .udo-backup*, .git, .superpowers (kills nested-backup recursion since the
-    new backup directory is never part of the pre-computed source listing)."""
+    new backup directory is never part of the pre-computed source listing).
+
+    If that name is already taken (e.g. a second upgrade run within the same
+    second), append -2, -3, ... until an unused name is found, rather than
+    failing the upgrade outright."""
     timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    backup_dir = target / f".udo-backup-{timestamp}"
-    if backup_dir.exists():
-        raise UpgradeError(f"backup destination already exists: {backup_dir}")
+    base_name = f".udo-backup-{timestamp}"
+    backup_dir = target / base_name
+    suffix = 1
+    while backup_dir.exists():
+        suffix += 1
+        backup_dir = target / f"{base_name}-{suffix}"
     backup_dir.mkdir(parents=True)
 
     top_level_names = sorted(p.name for p in target.iterdir() if p.name != backup_dir.name)
@@ -939,7 +972,7 @@ def _apply_migrate(manifest, target, source):
         if relpath == "UDO Project" and action == "ADD":
             copy_path_from_source("UDO Project", target, source)
             continue
-        if relpath.startswith(".project-catalog/decisions/") and action == "ADD":
+        if relpath.startswith("UDO Project/.project-catalog/decisions/") and action == "ADD":
             continue  # written after the port below, once we know what's unmapped
         if relpath == f"UDO -> {LEGACY_DIR_NAME}" and action == "TRANSFORM":
             name = _finalize_legacy_rename(legacy_root, target)
@@ -1223,6 +1256,7 @@ def main(argv=None):
     cleanup_dir = None
     try:
         source, cleanup_dir = fetch_source(args.source)
+        _guard_source_not_target(target, source)
         source_version = read_source_version(source)
 
         detection = detect(target, source_version, args.mode)

@@ -39,7 +39,7 @@ python3 upgrade.py --dry-run
 python3 upgrade.py
 ```
 
-`upgrade.py` auto-detects what you have (a fresh directory, an existing v2.x project, or a legacy single-folder v4.x `UDO/` install) and prints a manifest, one line per path, tagged ADD, REPLACE, TRANSFORM, or PRESERVE, before it changes anything. `--dry-run` just prints that manifest and exits. A real run backs up the whole target to `.udo-backup-<timestamp>/` first, asks for confirmation (skip with `--yes`), applies exactly the manifest it printed, and finishes by running `validate.py` against the result. If self-validation fails, the upgrade stops and reports the backup path so you can restore.
+`upgrade.py` auto-detects what you have (a fresh directory, an existing v2.x project, or a legacy single-folder v4.x `UDO/` install) and prints a manifest, one line per path, tagged ADD, REPLACE, TRANSFORM, or PRESERVE, before it changes anything. `--dry-run` just prints that manifest and exits. A real run shows the same manifest, asks for confirmation (skip with `--yes`), then backs up the whole target to `.udo-backup-<timestamp>/`, applies exactly the manifest it printed, and finishes by running `validate.py` against the result. If self-validation fails, the upgrade stops and reports the backup path so you can restore.
 
 A legacy v4.x `UDO/` install is carried forward in full: everything under it is ported into the new `UDO Framework/` + `UDO Project/` layout, the old `UDO/` folder is renamed to `UDO-v4-LEGACY-DO-NOT-EDIT/` (kept for reference, never deleted), and a migration record is written to `UDO Project/.project-catalog/decisions/`.
 
@@ -58,7 +58,7 @@ your-project/
 │   ├── COMMANDS.md            (session commands and shortcuts)
 │   └── [other framework files]
 │
-├── UDO Project/                ← Your isolated working context, upgrades add missing pieces here but never overwrite your data
+├── UDO Project/                ← Your isolated working context, upgrades add missing pieces here but never overwrite your data (PROJECT_STATE.json, CAPABILITIES.json, HARD_STOPS.md, and PROJECT_META.json get value-preserving updates instead: existing values are kept, only missing pieces are added)
 │   ├── PROJECT_STATE.json     (current goal, phase, todos)
 │   ├── PROJECT_META.json      (project identity)
 │   ├── TOPICS.md              (parallel workstreams)
