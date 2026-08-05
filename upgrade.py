@@ -450,6 +450,68 @@ def _backup_ignore(dir_path, names):
     return {n for n in names if _is_backup_excluded_name(n)}
 
 
+def _backup_shorten(path_str, limit=120):
+    """Truncate a path for display; only appends '...' when it actually
+    had to cut something, so short paths are not shown as truncated."""
+    s = str(path_str)
+    if len(s) > limit:
+        return s[:limit] + "..."
+    return s
+
+
+def _backup_offending_paths(exc):
+    """Pull up to 3 offending SOURCE paths out of a copytree failure.
+
+    shutil.Error carries exc.args[0] as a list of (src, dst, why) tuples
+    (raised once, after copytree collects every per-entry failure). A bare
+    OSError (e.g. the top-level destination mkdir failing outright) carries
+    the failing path on .filename instead."""
+    paths = []
+    if isinstance(exc, shutil.Error):
+        for item in exc.args[0] if exc.args else []:
+            if isinstance(item, (tuple, list)) and item:
+                paths.append(str(item[0]))
+    elif isinstance(exc, OSError):
+        if exc.filename:
+            paths.append(str(exc.filename))
+        elif exc.filename2:
+            paths.append(str(exc.filename2))
+    return paths[:3]
+
+
+def _backup_path_has_repeated_component(path_str, min_repeats=3):
+    """True if some directory component (e.g. '.checkpoints') repeats 3+
+    times in the path, the signature of a snapshot that recursively
+    copied itself into itself."""
+    counts = {}
+    for part in Path(str(path_str)).parts:
+        counts[part] = counts.get(part, 0) + 1
+        if counts[part] >= min_repeats:
+            return True
+    return False
+
+
+def _backup_failure_error(exc):
+    """Build the clean UpgradeError to raise when backup() cannot copy the
+    project, instead of letting a raw shutil/OSError traceback surface."""
+    offending = _backup_offending_paths(exc)
+    lines = ["Backup failed, no changes were made to your project."]
+    if offending:
+        lines.append("Offending path(s):")
+        for p in offending:
+            lines.append(f"  - {_backup_shorten(p)}")
+    else:
+        lines.append(f"Underlying error: {exc}")
+    if any(_backup_path_has_repeated_component(p) for p in offending):
+        lines.append(
+            "This looks like recursively nested checkpoint or backup copies "
+            "inside the install (snapshots that included their own snapshot "
+            "folder). Delete the nested copies inside .checkpoints/<name>/ "
+            "(keep only the first level) and re-run."
+        )
+    return UpgradeError("\n".join(lines))
+
+
 def backup(target):
     """Copy target into target/.udo-backup-<timestamp>/, excluding
     .udo-backup*, .git, .superpowers (kills nested-backup recursion since the
@@ -465,7 +527,11 @@ def backup(target):
     while backup_dir.exists():
         suffix += 1
         backup_dir = target / f"{base_name}-{suffix}"
-    backup_dir.mkdir(parents=True)
+
+    try:
+        backup_dir.mkdir(parents=True)
+    except OSError as exc:
+        raise _backup_failure_error(exc) from exc
 
     top_level_names = sorted(p.name for p in target.iterdir() if p.name != backup_dir.name)
     for name in top_level_names:
@@ -473,10 +539,14 @@ def backup(target):
             continue
         src = target / name
         dst = backup_dir / name
-        if src.is_dir():
-            shutil.copytree(src, dst, ignore=_backup_ignore)
-        else:
-            shutil.copy2(src, dst)
+        try:
+            if src.is_dir():
+                shutil.copytree(src, dst, ignore=_backup_ignore)
+            else:
+                shutil.copy2(src, dst)
+        except (shutil.Error, OSError) as exc:
+            shutil.rmtree(backup_dir, ignore_errors=True)
+            raise _backup_failure_error(exc) from exc
     return backup_dir
 
 

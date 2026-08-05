@@ -1,6 +1,6 @@
 # UDO: Universal Dynamic Orchestrator
 
-**Current version: 2.2**
+**Current version: 2.2.1**
 
 **Multi-LLM Safe Session Orchestration Framework**
 
@@ -142,6 +142,10 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 The legacy v4.x series (v4.9, v4.10, and earlier) was superseded by the v2.0 rewrite above; it is not compatible with this repository and is not maintained.
 
 ## Changelog
+
+### v2.2.1 (2026-08-05)
+
+- Hotfix: clean failure and guidance when backup hits recursively nested checkpoints or over-long paths, no partial backups left behind
 
 ### v2.2 (2026-08-04)
 
