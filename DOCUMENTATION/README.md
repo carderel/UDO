@@ -27,7 +27,7 @@ UDO splits a project into 5 root folders, each with one job:
 | `DOCUMENTATION/` | Learn how UDO works (you are here) |
 | `TOOLS/` | The skills and agent registry: what capabilities are installed or available to install |
 | `UDO Framework/` | The protocol itself. Replaced wholesale on upgrade. You never edit it. |
-| `UDO Project/` | Your working context: state, sessions, agents, memory. Upgrades never touch it. |
+| `UDO Project/` | Your working context: state, sessions, agents, memory. Upgrades preserve your data and add missing pieces, never overwriting existing files. |
 | `User Provided Files/` | External reference material you bring in from outside the project |
 
 The Framework/Project split exists so an AI cannot accidentally modify shared protocol rules while doing project work. `UDO Framework/` is read-only reference; `UDO Project/` is where the AI actually reads and writes as it works.
