@@ -32,7 +32,23 @@ Then start your LLM CLI from that folder and say: Read 'UDO Framework/START_HERE
 
 ### Upgrading an existing UDO project
 
-Preview the plan, then apply it:
+**Coming from an older version?** If your install does not have `upgrade.py` yet (any UDO v4.x, v2.0, or v2.1, since your install predates it), download the latest script first, then run it:
+
+Mac/Linux:
+```bash
+curl -O https://raw.githubusercontent.com/carderel/UDO-v2.0/main/upgrade.py
+python3 upgrade.py --dry-run
+```
+
+Windows (PowerShell):
+```powershell
+Invoke-WebRequest https://raw.githubusercontent.com/carderel/UDO-v2.0/main/upgrade.py -OutFile upgrade.py
+py -3 upgrade.py --dry-run
+```
+
+The script always fetches the newest UDO release from the repo, so downloading the latest `upgrade.py` first is all the updating the updater ever needs.
+
+If you already have `upgrade.py`, preview the plan, then apply it:
 
 ```bash
 python3 upgrade.py --dry-run
@@ -97,7 +113,7 @@ The Framework is intentionally immutable. All customizations belong in `/UDO Pro
 
 To extend the framework for your project:
 1. Read `/UDO Framework/ORCHESTRATOR.md` (immutability section)
-2. Add project-specific rules to `/UDO Project/HARD_STOPS.md` (HS-UDO-014 and beyond)
+2. Add project-specific rules to `/UDO Project/HARD_STOPS.md` (PROJECT_HS_003 and beyond)
 3. Never modify Framework files directly
 
 ## Upgrade Scripts

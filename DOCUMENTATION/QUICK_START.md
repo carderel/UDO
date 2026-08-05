@@ -130,7 +130,18 @@ This checks that required files and folders exist, `PROJECT_STATE.json` parses a
 - Make sure you have write access to the project folder.
 
 **"How do I upgrade later?"**
-- Run `python3 upgrade.py --dry-run` from the project root first. It prints a manifest (what will be added, replaced, transformed, or left alone) without changing anything. Review it, then run `python3 upgrade.py` for real. It shows that same manifest, asks for confirmation (skip with `--yes`), then backs up the whole project to `.udo-backup-<timestamp>/` before touching anything, and finishes by running `validate.py` on the result, failing loudly with the backup path if that check does not pass. Use `--source <path-or-url>` to install from a local checkout or zip instead of the default GitHub release. A legacy single-folder `UDO/` install (v4.x) is carried forward automatically; the old folder is renamed to `UDO-v4-LEGACY-DO-NOT-EDIT/` and kept, never deleted. `upgrade.sh` / `upgrade.ps1` are equivalent wrappers around the same script.
+- **Coming from an older version?** If your install does not have `upgrade.py` yet (any UDO v4.x, v2.0, or v2.1, since your install predates it), download the latest script first, then run it. Mac/Linux:
+  ```bash
+  curl -O https://raw.githubusercontent.com/carderel/UDO-v2.0/main/upgrade.py
+  python3 upgrade.py --dry-run
+  ```
+  Windows (PowerShell):
+  ```powershell
+  Invoke-WebRequest https://raw.githubusercontent.com/carderel/UDO-v2.0/main/upgrade.py -OutFile upgrade.py
+  py -3 upgrade.py --dry-run
+  ```
+  The script always fetches the newest UDO release from the repo, so downloading the latest `upgrade.py` first is all the updating the updater ever needs.
+- If you already have `upgrade.py`, run `python3 upgrade.py --dry-run` from the project root first. It prints a manifest (what will be added, replaced, transformed, or left alone) without changing anything. Review it, then run `python3 upgrade.py` for real. It shows that same manifest, asks for confirmation (skip with `--yes`), then backs up the whole project to `.udo-backup-<timestamp>/` before touching anything, and finishes by running `validate.py` on the result, failing loudly with the backup path if that check does not pass. Use `--source <path-or-url>` to install from a local checkout or zip instead of the default GitHub release. A legacy single-folder `UDO/` install (v4.x) is carried forward automatically; the old folder is renamed to `UDO-v4-LEGACY-DO-NOT-EDIT/` and kept, never deleted. `upgrade.sh` / `upgrade.ps1` are equivalent wrappers around the same script.
 
 **"Should I turn on the enforcement hook?"**
 - If you're on Claude Code, yes, it's already wired up and costs nothing extra. On other LLM CLIs, use `python3 validate.py` instead; see Step 4 above.

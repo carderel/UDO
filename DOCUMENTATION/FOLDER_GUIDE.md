@@ -204,7 +204,23 @@ It only runs in Claude Code. If you're on a different LLM CLI, use `python3 vali
 
 ### "How do I upgrade UDO?"
 
-Run `python3 upgrade.py --dry-run` first to see exactly what will change: a manifest tagged ADD, REPLACE, TRANSFORM, or PRESERVE for every affected path, printed without touching anything. Review it, then run `python3 upgrade.py` for real. It shows that same manifest, prompts for confirmation unless you pass `--yes`, then backs up the whole project to `.udo-backup-<timestamp>/`, applies the manifest, and finishes by running `validate.py` against the result, failing loudly with the backup path if self-validation does not pass.
+**Coming from an older version?** If your install does not have `upgrade.py` yet (any UDO v4.x, v2.0, or v2.1, since your install predates it), download the latest script first, then run it:
+
+Mac/Linux:
+```bash
+curl -O https://raw.githubusercontent.com/carderel/UDO-v2.0/main/upgrade.py
+python3 upgrade.py --dry-run
+```
+
+Windows (PowerShell):
+```powershell
+Invoke-WebRequest https://raw.githubusercontent.com/carderel/UDO-v2.0/main/upgrade.py -OutFile upgrade.py
+py -3 upgrade.py --dry-run
+```
+
+The script always fetches the newest UDO release from the repo, so downloading the latest `upgrade.py` first is all the updating the updater ever needs.
+
+If you already have `upgrade.py`, run `python3 upgrade.py --dry-run` first to see exactly what will change: a manifest tagged ADD, REPLACE, TRANSFORM, or PRESERVE for every affected path, printed without touching anything. Review it, then run `python3 upgrade.py` for real. It shows that same manifest, prompts for confirmation unless you pass `--yes`, then backs up the whole project to `.udo-backup-<timestamp>/`, applies the manifest, and finishes by running `validate.py` against the result, failing loudly with the backup path if self-validation does not pass.
 
 `upgrade.py` auto-detects a fresh directory, an existing v2.x project, or a legacy single-folder v4.x `UDO/` install. A v4.x install is migrated in full: everything under `UDO/` is ported into the new `UDO Framework/` + `UDO Project/` layout, the old `UDO/` folder is renamed to `UDO-v4-LEGACY-DO-NOT-EDIT/` (kept for reference, never deleted), and a migration record is written under `UDO Project/.project-catalog/decisions/`.
 
