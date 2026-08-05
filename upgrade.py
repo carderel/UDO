@@ -1254,6 +1254,7 @@ def main(argv=None):
     target = Path(args.target_dir).expanduser().resolve()
 
     cleanup_dir = None
+    backup_dir = None
     try:
         source, cleanup_dir = fetch_source(args.source)
         _guard_source_not_target(target, source)
@@ -1332,6 +1333,10 @@ def main(argv=None):
 
     except UpgradeError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
+        if backup_dir is not None:
+            print(f"The target may be in a partially-applied state. Backup is at: {backup_dir}",
+                  file=sys.stderr)
+            print("Restore it if needed before retrying.", file=sys.stderr)
         return 1
     finally:
         if cleanup_dir is not None:
