@@ -143,6 +143,10 @@ The legacy v4.x series (v4.9, v4.10, and earlier) was superseded by the v2.0 rew
 
 ## Changelog
 
+### v2.2.3 (2026-08-05)
+
+- User .gitignore is merged, never replaced
+
 ### v2.2.2 (2026-08-05)
 
 - v4-at-root installs now migrate automatically; fresh mode refuses ambiguous targets

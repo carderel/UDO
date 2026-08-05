@@ -429,13 +429,13 @@ def detect(target, source_version, forced_mode):
 
 def build_manifest(lane_mode, target, source):
     if lane_mode == "fresh":
-        return _manifest_fresh(target)
+        return _manifest_fresh(target, source)
     if lane_mode == "upgrade":
         return _manifest_upgrade(target)
     if lane_mode == "migrate":
         return _manifest_migrate(target)
     if lane_mode == "migrate-root":
-        return _manifest_migrate_root(target)
+        return _manifest_migrate_root(target, source)
     raise UpgradeError(f"unknown lane mode: {lane_mode}")
 
 
@@ -464,11 +464,41 @@ def _claude_manifest_entries(target):
     ]
 
 
-def _manifest_fresh(target):
+def _gitignore_manifest_entries(target, source):
+    """Manifest entries for ".gitignore" wherever a FRESH_TOP_LEVEL loop
+    would otherwise blanket-REPLACE it. A real target root is often the
+    user's own app repo, whose .gitignore already protects its own repo
+    hygiene (node_modules/, dist/, .env, ...) -- replacing it outright would
+    silently break that. Same class of fix as _claude_manifest_entries.
+
+    If .gitignore does not exist at all, it is a plain new-install ADD of
+    the template as-is. If it exists, the template's entries are merged in
+    (see merge_gitignore) instead of the file being replaced: TRANSFORM is
+    reported unless the merge is a no-op (marker already present from an
+    earlier run, or every template entry already covered by the user's own
+    lines), in which case PRESERVE is reported -- matching exactly what
+    apply will do, per this file's print-time/apply-time consistency
+    contract.
+    """
+    gitignore_path = target / ".gitignore"
+    if not gitignore_path.is_file():
+        return [("ADD", ".gitignore")]
+    source_gitignore = source / ".gitignore"
+    existing_text = gitignore_path.read_text(encoding="utf-8")
+    source_text = source_gitignore.read_text(encoding="utf-8") if source_gitignore.is_file() else ""
+    merged = merge_gitignore(existing_text, source_text)
+    action = "TRANSFORM" if merged != existing_text else "PRESERVE"
+    return [(action, ".gitignore")]
+
+
+def _manifest_fresh(target, source):
     manifest = []
     for item in FRESH_TOP_LEVEL:
         if item == ".claude":
             manifest.extend(_claude_manifest_entries(target))
+            continue
+        if item == ".gitignore":
+            manifest.extend(_gitignore_manifest_entries(target, source))
             continue
         action = "REPLACE" if _exists_at(target, item) else "ADD"
         manifest.append((action, item))
@@ -564,7 +594,7 @@ def _v4_root_recognized_present(target):
     return present
 
 
-def _manifest_migrate_root(target):
+def _manifest_migrate_root(target, source):
     """A v4.x install whose protocol files sit directly at the target root,
     mixed with the user's own files, rather than inside a "UDO/" subfolder.
 
@@ -593,6 +623,9 @@ def _manifest_migrate_root(target):
             continue
         if item == ".claude":
             manifest.extend(_claude_manifest_entries(target))
+            continue
+        if item == ".gitignore":
+            manifest.extend(_gitignore_manifest_entries(target, source))
             continue
         if item in recognized:
             manifest.append(("ADD", item))
@@ -1013,6 +1046,52 @@ def append_hard_stops_project_blocks(existing_text, source_text):
     return base + "\n\n" + block + "\n"
 
 
+GITIGNORE_MARKER_START = "# --- UDO runtime (added by upgrade.py) ---"
+GITIGNORE_MARKER_END = "# --- end UDO runtime ---"
+
+
+def _gitignore_template_entries(source_text):
+    """Non-blank, non-comment lines of a .gitignore, in order -- the
+    UDO-specific ignore entries a merge must ensure are present. Pure."""
+    entries = []
+    for line in source_text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        entries.append(stripped)
+    return entries
+
+
+def merge_gitignore(existing_text, source_text):
+    """Merge the UDO template's .gitignore entries into a user's existing
+    .gitignore, without ever removing or reordering the user's own lines
+    (same intent as append_hard_stops_project_blocks, applied to a file a
+    real app repo owns for its own hygiene -- node_modules, dist, .env --
+    which a blanket REPLACE would otherwise clobber).
+
+    Idempotent: once the marker block has been appended, existing_text is
+    returned unchanged on every later call, regardless of what source_text
+    contains, so a repeat upgrade never reopens or duplicates the block. On
+    a first merge, only template entries not already present verbatim as a
+    line in existing_text are appended, wrapped once in marker lines; if
+    every template entry is already covered, existing_text is returned
+    unchanged rather than adding an empty marker block. Pure.
+    """
+    if GITIGNORE_MARKER_START in existing_text:
+        return existing_text
+
+    existing_lines = {line.strip() for line in existing_text.splitlines()}
+    missing = [e for e in _gitignore_template_entries(source_text) if e not in existing_lines]
+    if not missing:
+        return existing_text
+
+    block = "\n".join([GITIGNORE_MARKER_START] + missing + [GITIGNORE_MARKER_END])
+    base = existing_text.rstrip("\n")
+    if base:
+        return base + "\n\n" + block + "\n"
+    return block + "\n"
+
+
 def map_v4_state_to_v22(v4_obj, source_state_obj):
     """Map a v4 flat PROJECT_STATE.json to the v2.2 nested schema.
 
@@ -1190,11 +1269,13 @@ def apply(manifest, lane_mode, target, source):
 def _apply_fresh(manifest, target, source):
     for action, relpath in manifest:
         if action == "PRESERVE":
-            continue  # .claude, when it already exists -- never touched
+            continue  # .claude or .gitignore, when merge is already a no-op
         if action == "ADD":
             copy_path_from_source(relpath, target, source)
         elif action == "REPLACE":
             replace_path_from_source(relpath, target, source)
+        elif action == "TRANSFORM":
+            _apply_transform(relpath, target, source)
         else:
             raise UpgradeError(f"unexpected action in fresh manifest: {action} {relpath}")
 
@@ -1240,6 +1321,11 @@ def _apply_transform(relpath, target, source):
         source_text = src.read_text(encoding="utf-8") if src.is_file() else ""
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_text(append_hard_stops_project_blocks(existing_text, source_text), encoding="utf-8")
+    elif name == ".gitignore":
+        existing_text = dst.read_text(encoding="utf-8") if dst.is_file() else ""
+        source_text = src.read_text(encoding="utf-8") if src.is_file() else ""
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(merge_gitignore(existing_text, source_text), encoding="utf-8")
     else:
         raise UpgradeError(f"no transform defined for: {relpath}")
 
@@ -1462,6 +1548,8 @@ def _apply_migrate_root(manifest, target, source, progress=None):
             copy_path_from_source(relpath, target, source)
         elif action == "REPLACE":
             replace_path_from_source(relpath, target, source)
+        elif action == "TRANSFORM":
+            _apply_transform(relpath, target, source)
         else:
             raise UpgradeError(f"unexpected action in migrate-root manifest: {action} {relpath}")
 
