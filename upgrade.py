@@ -539,6 +539,54 @@ def _next_todo_id(used_ids):
         n += 1
 
 
+def _map_v4_todo_item(item, existing_ids, status_default):
+    """Map one item from a v4 `todos` or `in_progress` list into a
+    structured v2.2 todo dict, tolerating malformed dict items instead of
+    letting validate.py's structured-todo check fail the whole migration.
+
+    - str -> structured todo (auto id).
+    - dict with a non-empty string `task` -> structured todo (auto id if
+      missing/non-string).
+    - dict with no usable `task` but a non-empty string `description`,
+      `title`, or `name` -> that value becomes `task` (auto id if needed);
+      the substitution is reported via the returned note so the caller can
+      record it in the migration record.
+    - anything else (dict with no usable text field at all, or a
+      non-str/non-dict item) -> not mapped; the raw item is returned so the
+      caller can route it to the migration record's unmapped section
+      instead of into todos.
+
+    Returns (todo_dict_or_None, substitution_note_or_None, unmapped_raw_or_None).
+    Exactly one of (todo_dict_or_None, unmapped_raw_or_None) is non-None.
+    """
+    if isinstance(item, str):
+        return (
+            {"id": _next_todo_id(existing_ids), "task": item, "status": status_default, "priority": "normal"},
+            None,
+            None,
+        )
+    if isinstance(item, dict):
+        task = item.get("task")
+        if isinstance(task, str) and task.strip():
+            out = dict(item)
+            out.setdefault("status", status_default)
+            if not isinstance(out.get("id"), str):
+                out["id"] = _next_todo_id(existing_ids)
+            return out, None, None
+        for fallback_key in ("description", "title", "name"):
+            value = item.get(fallback_key)
+            if isinstance(value, str) and value.strip():
+                out = dict(item)
+                out["task"] = value
+                out.setdefault("status", status_default)
+                if not isinstance(out.get("id"), str):
+                    out["id"] = _next_todo_id(existing_ids)
+                note = {"used_key": fallback_key, "task": value, "original_item": item}
+                return out, note, None
+        return None, None, item
+    return None, None, item
+
+
 def transform_state(state_obj, source_state_obj):
     """v2.x in-place upgrade transform of a parsed PROJECT_STATE.json.
 
@@ -664,17 +712,29 @@ def map_v4_state_to_v22(v4_obj, source_state_obj):
     `auto_checkpoint` carries when present with `trigger` normalized to
     "phase-boundary" (any v4 count-based subfield with no v2.2 shape, e.g.
     `todos_since_checkpoint`, is moved into the returned unmapped dict
-    instead); v4 `in_progress[]` string items become structured todos with
-    status "in_progress", placed before the pending todos and sharing the
-    same T-NNN id sequence (no duplicate ids, even when some todos already
-    carry an explicit id).
+    instead; an explicit `trigger` value other than "phase-boundary" is
+    also recorded there rather than silently discarded); v4 `in_progress[]`
+    items become structured todos with status "in_progress", placed before
+    the pending todos and sharing the same T-NNN id sequence (no duplicate
+    ids, even when some todos already carry an explicit id).
+
+    Dict items in `in_progress[]` or `todos[]` are never let through to
+    validate.py's structured-todo check unless they have a usable `task`:
+    a dict with a non-empty string `task` maps as-is (auto id if missing);
+    a dict with no `task` but a `description`, `title`, or `name` string
+    uses that as `task` (recorded as a substitution in unmapped_dict); a
+    dict with none of those, or any other non-str/non-dict item, is never
+    put into todos at all and instead is recorded, verbatim, in
+    unmapped_dict, so a single malformed item can never abort the whole
+    migration.
 
     Returns (v22_state_dict, unmapped_dict). unmapped_dict carries the v4
-    `completed` list and any field with no v2.2 equivalent (e.g. blockers,
-    agent_registry, bridge, current_session, prompt_counter internals), so
-    nothing is silently dropped; the caller writes unmapped_dict into the
-    migration decision record, where it lives only in that record. Pure:
-    returns new dicts, never mutates its arguments.
+    `completed` list, any field with no v2.2 equivalent (e.g. blockers,
+    agent_registry, bridge, current_session, prompt_counter internals),
+    any todo/in_progress key substitutions, and any unmappable todo/
+    in_progress items, so nothing is silently dropped; the caller writes
+    unmapped_dict into the migration decision record, where it lives only
+    in that record. Pure: returns new dicts, never mutates its arguments.
     """
     v4 = copy.deepcopy(v4_obj) if isinstance(v4_obj, dict) else {}
     known_v4_keys = {
@@ -685,23 +745,25 @@ def map_v4_state_to_v22(v4_obj, source_state_obj):
     existing_ids = _collect_todo_ids(v4.get("todos", [])) | _collect_todo_ids(v4.get("in_progress", []))
 
     todos = []
+    todo_substitutions = []
+    unmapped_in_progress_items = []
+    unmapped_todos_items = []
     for t in v4.get("in_progress", []):
-        if isinstance(t, str):
-            todos.append({"id": _next_todo_id(existing_ids), "task": t, "status": "in_progress", "priority": "normal"})
-        elif isinstance(t, dict):
-            item = dict(t)
-            item.setdefault("status", "in_progress")
-            if not isinstance(item.get("id"), str):
-                item["id"] = _next_todo_id(existing_ids)
-            todos.append(item)
+        mapped, note, raw = _map_v4_todo_item(t, existing_ids, "in_progress")
+        if mapped is not None:
+            todos.append(mapped)
+            if note is not None:
+                todo_substitutions.append({"list": "in_progress", **note})
+        else:
+            unmapped_in_progress_items.append(raw)
     for t in v4.get("todos", []):
-        if isinstance(t, str):
-            todos.append({"id": _next_todo_id(existing_ids), "task": t, "status": "pending", "priority": "normal"})
-        elif isinstance(t, dict):
-            item = dict(t)
-            if not isinstance(item.get("id"), str):
-                item["id"] = _next_todo_id(existing_ids)
-            todos.append(item)
+        mapped, note, raw = _map_v4_todo_item(t, existing_ids, "pending")
+        if mapped is not None:
+            todos.append(mapped)
+            if note is not None:
+                todo_substitutions.append({"list": "todos", **note})
+        else:
+            unmapped_todos_items.append(raw)
 
     checkpoints = []
     for cp in v4.get("checkpoints", []):
@@ -728,6 +790,12 @@ def map_v4_state_to_v22(v4_obj, source_state_obj):
     inner["scope_locked"] = False
 
     unmapped = {"completed": v4.get("completed", [])}
+    if todo_substitutions:
+        unmapped["todo_key_substitutions"] = todo_substitutions
+    if unmapped_in_progress_items:
+        unmapped["in_progress_unmapped_items"] = unmapped_in_progress_items
+    if unmapped_todos_items:
+        unmapped["todos_unmapped_items"] = unmapped_todos_items
 
     if "circuit_breaker" in v4:
         inner["circuit_breaker"] = copy.deepcopy(v4["circuit_breaker"])
@@ -751,6 +819,10 @@ def map_v4_state_to_v22(v4_obj, source_state_obj):
             "last_auto_checkpoint": ac.get("last_auto_checkpoint"),
         }
         leftover = {k: v for k, v in ac.items() if k not in {"enabled", "last_auto_checkpoint", "trigger"}}
+        original_trigger = ac.get("trigger")
+        if isinstance(original_trigger, str) and original_trigger != "phase-boundary":
+            leftover = dict(leftover)
+            leftover["trigger"] = original_trigger
         if leftover:
             unmapped["auto_checkpoint"] = leftover
     else:
