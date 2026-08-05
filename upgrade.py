@@ -6,7 +6,7 @@ Files/, validate.py, .claude/, README.md, START_HERE.md, LICENSE, .gitignore).
 
 Usage:
     python3 upgrade.py [TARGET_DIR] [--dry-run] [--yes] [--source PATH_OR_URL]
-                        [--mode fresh|upgrade|migrate|refresh]
+                        [--mode fresh|upgrade|migrate|migrate-root|refresh]
 
 TARGET_DIR defaults to the current working directory. Exit 0 on success or
 when there is nothing to do; exit 1 on any error.
@@ -191,6 +191,70 @@ V4_PORT_FILES = [
 
 LEGACY_DIR_NAME = "UDO-v4-LEGACY-DO-NOT-EDIT"
 
+# migrate-root: field finding is that many real v4.x installs are not inside
+# a "UDO/" subfolder at all -- their protocol files sit directly at the
+# project root, mixed in with the user's own work files. These are the
+# marker files detect() counts to decide whether a bare target root is a
+# v4.x install rather than an empty (or unrelated) directory. 3+ present is
+# treated as confident; 1-2 is ambiguous and must never be auto-resolved.
+V4_ROOT_MARKERS = [
+    "ORCHESTRATOR.md",
+    "HARD_STOPS.md",
+    "PROJECT_STATE.json",
+    "COMMANDS.md",
+    "REASONING_CONTRACT.md",
+]
+
+# migrate-root: the full recognized v4.x root file/dir set. Anything at the
+# target root that is NOT in one of these two lists is the user's own work
+# and is PRESERVEd untouched (listed explicitly in the manifest so the user
+# can see it will not be touched). CLAUDE.md is deliberately not recognized:
+# it is not a UDO file, and migrate-root must never assume otherwise.
+V4_ROOT_RECOGNIZED_FILES = [
+    "ORCHESTRATOR.md",
+    "HARD_STOPS.md",
+    "COMMANDS.md",
+    "START_HERE.md",
+    "README.md",
+    "REASONING_CONTRACT.md",
+    "DEVILS_ADVOCATE.md",
+    "AUDIENCE_ANTICIPATION.md",
+    "EVIDENCE_PROTOCOL.md",
+    "TEACH_BACK_PROTOCOL.md",
+    "OVERSIGHT_DASHBOARD.md",
+    "HANDOFF_PROMPT.md",
+    "LESSONS_LEARNED.md",
+    "NON_GOALS.md",
+    "PROJECT_META.json",
+    "PROJECT_STATE.json",
+    "CAPABILITIES.json",
+    "VERSION",
+    ".manifest.json",
+]
+V4_ROOT_RECOGNIZED_DIRS = [
+    ".project-catalog",
+    ".memory",
+    ".agents",
+    ".outputs",
+    ".inputs",
+    ".rules",
+    ".checkpoints",
+    ".templates",
+    ".tools",
+    ".takeover",
+    ".bridge",
+]
+
+# migrate-root PORT lane: the subset of the recognized set that has a real
+# v2.2 home and is copied/merged/transformed into "UDO Project/", using the
+# exact same helpers as the UDO/-subdir migrate lane's V4_PORT_DIRS /
+# V4_PORT_FILES (plus CAPABILITIES.json, ported here via transform_
+# capabilities the same way PROJECT_META.json is ported via transform_
+# project_meta). PROJECT_STATE.json is handled separately, same as the
+# subdir migrate lane, via map_v4_state_to_v22.
+V4_ROOT_PORT_DIRS = [".project-catalog", ".memory", ".agents", ".outputs", ".inputs", ".checkpoints", ".rules"]
+V4_ROOT_PORT_FILES = ["LESSONS_LEARNED.md", "NON_GOALS.md", "PROJECT_META.json", "CAPABILITIES.json"]
+
 
 class UpgradeError(Exception):
     """A user-facing error. Caught in main(); prints message and exits 1."""
@@ -314,7 +378,7 @@ def detect(target, source_version, forced_mode):
             raise UpgradeError(
                 f"{fw_version_path} exists but is empty or unparseable (contents: {raw!r}). "
                 "Refusing to guess the installed version. Re-run with an explicit "
-                "--mode fresh|upgrade|migrate|refresh to proceed."
+                "--mode fresh|upgrade|migrate|migrate-root|refresh to proceed."
             )
         if version == source_version:
             return DetectResult(mode="upgrade", current_version=version, up_to_date=True)
@@ -324,7 +388,7 @@ def detect(target, source_version, forced_mode):
         raise UpgradeError(
             f"{target / 'UDO Framework'} exists but {fw_version_path} does not. "
             "Refusing to guess the installed version. Re-run with an explicit "
-            "--mode fresh|upgrade|migrate|refresh to proceed."
+            "--mode fresh|upgrade|migrate|migrate-root|refresh to proceed."
         )
 
     # "UDO Framework" is guaranteed not to be a dir here: the guard above
@@ -332,6 +396,29 @@ def detect(target, source_version, forced_mode):
     udo_dir = target / "UDO"
     if udo_dir.is_dir() and (udo_dir / "ORCHESTRATOR.md").is_file():
         return DetectResult(mode="migrate", current_version=None, up_to_date=False)
+
+    # Field finding: many real v4.x installs are not in a "UDO/" subfolder
+    # at all -- their protocol files sit directly at the project root, mixed
+    # in with the user's own work (client files, images, app folders).
+    # Neither check above catches that shape, and falling through to
+    # "fresh" here would apply the fresh manifest straight over it, silently
+    # overwriting root files (README.md, START_HERE.md, .gitignore) that
+    # belong to the v4 install. Count recognized v4 root marker files; 3+ is
+    # treated as confident enough to auto-select migrate-root, 1-2 is
+    # ambiguous (could just be a same-named file of the user's own) and must
+    # never be resolved by guessing fresh.
+    found_markers = sorted(m for m in V4_ROOT_MARKERS if (target / m).is_file())
+    if len(found_markers) >= 3:
+        return DetectResult(mode="migrate-root", current_version=None, up_to_date=False)
+    if found_markers:
+        raise UpgradeError(
+            f"Found {len(found_markers)} v4.x root marker file(s) at {target} "
+            f"({', '.join(found_markers)}) -- not enough to confidently auto-detect a v4.x "
+            "install at the project root, but not zero either. Refusing to guess: applying "
+            "a fresh install here could silently overwrite files that belong to a partial "
+            "v4.x install. Re-run with an explicit --mode fresh|upgrade|migrate|migrate-root"
+            "|refresh to proceed."
+        )
 
     return DetectResult(mode="fresh", current_version=None, up_to_date=False)
 
@@ -347,6 +434,8 @@ def build_manifest(lane_mode, target, source):
         return _manifest_upgrade(target)
     if lane_mode == "migrate":
         return _manifest_migrate(target)
+    if lane_mode == "migrate-root":
+        return _manifest_migrate_root(target)
     raise UpgradeError(f"unknown lane mode: {lane_mode}")
 
 
@@ -434,6 +523,65 @@ def _manifest_migrate(target):
     manifest.append(("TRANSFORM", "UDO/PROJECT_STATE.json -> UDO Project/PROJECT_STATE.json"))
     manifest.append(("ADD", "UDO Project/.project-catalog/decisions/<date>-v4-to-v22-migration-record.md"))
     manifest.append(("TRANSFORM", f"UDO -> {LEGACY_DIR_NAME}"))
+
+    return manifest
+
+
+def _v4_root_recognized_present(target):
+    """Recognized v4 root marker names (files, then dirs) actually present
+    at target, in V4_ROOT_RECOGNIZED_FILES + V4_ROOT_RECOGNIZED_DIRS order."""
+    present = []
+    for name in V4_ROOT_RECOGNIZED_FILES:
+        if (target / name).is_file():
+            present.append(name)
+    for name in V4_ROOT_RECOGNIZED_DIRS:
+        if (target / name).is_dir():
+            present.append(name)
+    return present
+
+
+def _manifest_migrate_root(target):
+    """A v4.x install whose protocol files sit directly at the target root,
+    mixed with the user's own files, rather than inside a "UDO/" subfolder.
+
+    Four lanes: ADD (the v2.2 structure, "UDO Project/" bootstrapped then
+    ported into below), PORT (recognized v4 root data merged/transformed
+    into "UDO Project/"), LEGACY (every recognized v4 root item, moved
+    wholesale into the legacy folder -- including the items PORT already
+    read, since PORT copies rather than moves), and PRESERVE (every root
+    entry that is not recognized as v4 and not part of the v2.2 structure:
+    the user's own work, named explicitly so they can see it will not be
+    touched).
+    """
+    manifest = []
+
+    for item in FRESH_TOP_LEVEL:
+        if item == "UDO Project":
+            continue
+        action = "REPLACE" if _exists_at(target, item) else "ADD"
+        manifest.append((action, item))
+    manifest.append(("ADD", "UDO Project"))
+
+    for item in V4_ROOT_PORT_DIRS + V4_ROOT_PORT_FILES:
+        if _exists_at(target, item):
+            manifest.append(("PORT", f"{item} -> UDO Project/{item}"))
+    if _exists_at(target, "PROJECT_STATE.json"):
+        manifest.append(("PORT", "PROJECT_STATE.json -> UDO Project/PROJECT_STATE.json"))
+    manifest.append(("ADD", "UDO Project/.project-catalog/decisions/<date>-v4-to-v22-migration-record.md"))
+
+    for item in _v4_root_recognized_present(target):
+        manifest.append(("LEGACY", f"{item} -> {LEGACY_DIR_NAME}/{item}"))
+
+    recognized = set(V4_ROOT_RECOGNIZED_FILES) | set(V4_ROOT_RECOGNIZED_DIRS)
+    fresh_names = set(FRESH_TOP_LEVEL)
+    if target.is_dir():
+        for entry in sorted(target.iterdir(), key=lambda p: p.name):
+            name = entry.name
+            if name in recognized or name in fresh_names:
+                continue
+            if name in EXCLUDE_DIR_NAMES or name.startswith(EXCLUDE_DIR_PREFIXES):
+                continue
+            manifest.append(("PRESERVE", name))
 
     return manifest
 
@@ -974,6 +1122,8 @@ def apply(manifest, lane_mode, target, source):
         _apply_upgrade(manifest, target, source)
     elif lane_mode == "migrate":
         _apply_migrate(manifest, target, source)
+    elif lane_mode == "migrate-root":
+        _apply_migrate_root(manifest, target, source)
     else:
         raise UpgradeError(f"unknown lane mode: {lane_mode}")
 
@@ -1064,7 +1214,13 @@ def _apply_migrate(manifest, target, source):
 
 
 def _apply_migrate_transform(relpath, target, source, legacy_root):
-    if relpath == "UDO/PROJECT_STATE.json -> UDO Project/PROJECT_STATE.json":
+    # relpath is "<item> -> UDO Project/<item>", optionally prefixed with
+    # "UDO/" (the subdir migrate lane); migrate-root passes the bare item
+    # name since its v4 data sits directly at legacy_root (the target root
+    # itself) rather than under a "UDO/" subfolder.
+    item = relpath.split(" -> ", 1)[0].replace("UDO/", "", 1)
+
+    if item == "PROJECT_STATE.json":
         v4_state_path = legacy_root / "PROJECT_STATE.json"
         v4_state = load_json(v4_state_path)
         source_state = load_json(source / "UDO Project" / "PROJECT_STATE.json")
@@ -1072,7 +1228,6 @@ def _apply_migrate_transform(relpath, target, source, legacy_root):
         write_json(target / "UDO Project" / "PROJECT_STATE.json", v22_state)
         return unmapped
 
-    item = relpath.split(" -> ", 1)[0].replace("UDO/", "", 1)
     legacy_src = legacy_root / item
     project_dst = target / "UDO Project" / item
     if not legacy_src.exists():
@@ -1081,6 +1236,12 @@ def _apply_migrate_transform(relpath, target, source, legacy_root):
     if item == "PROJECT_META.json":
         data = load_json(legacy_src)
         write_json(project_dst, transform_project_meta(data))
+        return None
+
+    if item == "CAPABILITIES.json":
+        data = load_json(legacy_src)
+        source_caps = load_json(source / "UDO Project" / "CAPABILITIES.json")
+        write_json(project_dst, transform_capabilities(data, source_caps))
         return None
 
     if legacy_src.is_dir():
@@ -1184,6 +1345,127 @@ def _finalize_legacy_rename(legacy_root, target):
     return legacy_dest.name
 
 
+def _apply_migrate_root(manifest, target, source):
+    """Apply the migrate-root lane: a v4.x install whose protocol files sit
+    directly at the project root, mixed with the user's own work, rather
+    than inside a "UDO/" subfolder. Mirrors _apply_migrate's structure and
+    reuses the same transform helpers, in this order:
+
+    1. Bootstrap "UDO Project/" from source, then PORT the recognized v4
+       root data into it -- while those v4 files are still at their
+       original root location, so they can be read.
+    2. LEGACY: move every recognized v4 root item (including the ones PORT
+       just read, whose copies now live in "UDO Project/") into a fresh
+       legacy folder.
+    3. ADD the rest of the v2.2 root structure. By now every recognized v4
+       item that could collide with a fresh top-level name (README.md,
+       START_HERE.md, ...) has already been moved into the legacy folder,
+       so this step never overwrites a v4 file unseen.
+
+    Returns (unmapped_by_lane, legacy_dir_name), same contract as
+    _apply_migrate.
+    """
+    unmapped_by_lane = {}
+
+    for action, relpath in manifest:
+        if action == "ADD" and relpath == "UDO Project":
+            copy_path_from_source("UDO Project", target, source)
+            break
+
+    for action, relpath in manifest:
+        if action != "PORT":
+            continue
+        unmapped = _apply_migrate_transform(relpath, target, source, target)
+        if unmapped:
+            unmapped_by_lane[relpath] = unmapped
+
+    legacy_items = [relpath for action, relpath in manifest if action == "LEGACY"]
+    legacy_dir_name = _finalize_legacy_root_rename(legacy_items, target)
+    if legacy_dir_name is None:
+        legacy_dir_name = LEGACY_DIR_NAME
+
+    for action, relpath in manifest:
+        if relpath == "UDO Project" or action in ("PORT", "LEGACY", "PRESERVE"):
+            continue
+        if relpath.startswith("UDO Project/.project-catalog/decisions/"):
+            continue  # written after apply(), once we know what's unmapped
+        if action == "ADD":
+            copy_path_from_source(relpath, target, source)
+        elif action == "REPLACE":
+            replace_path_from_source(relpath, target, source)
+        else:
+            raise UpgradeError(f"unexpected action in migrate-root manifest: {action} {relpath}")
+
+    return unmapped_by_lane, legacy_dir_name
+
+
+def _finalize_legacy_root_rename(legacy_items, target):
+    """Move every recognized v4 root item into a fresh legacy folder at the
+    target root (root-layout counterpart to _finalize_legacy_rename, which
+    renames a single "UDO/" subfolder in one shot; migrate-root instead has
+    many individual root-level items to relocate).
+
+    legacy_items is the manifest's LEGACY-action relpath list, each shaped
+    "<item> -> UDO-v4-LEGACY-DO-NOT-EDIT/<item>". Uses the same suffix-on-
+    collision naming as backup()/_finalize_legacy_rename if the legacy
+    folder name is already taken (a retry after an earlier migrate-root
+    attempt), instead of raising a raw traceback. Writes _LEGACY_NOTICE.md.
+
+    Returns the final legacy directory name (just the name, not a full
+    path), or None if there was nothing to move.
+    """
+    if not legacy_items:
+        return None
+
+    legacy_dest = target / LEGACY_DIR_NAME
+    suffixed = False
+    if legacy_dest.exists():
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        legacy_dest = target / f"{LEGACY_DIR_NAME}-{timestamp}"
+        suffixed = True
+
+    legacy_dest.mkdir(parents=True)
+
+    for relpath in legacy_items:
+        item = relpath.split(" -> ", 1)[0]
+        src = target / item
+        if not src.exists():
+            continue
+        dst = legacy_dest / item
+        try:
+            src.rename(dst)
+        except OSError as exc:
+            raise UpgradeError(
+                f"could not move the legacy v4.x file/folder from {src} to {dst}: {exc}"
+            ) from exc
+
+    extra_note = ""
+    if suffixed:
+        extra_note = (
+            f"\nRenamed to \"{legacy_dest.name}/\" (timestamp-suffixed) because "
+            f"\"{LEGACY_DIR_NAME}/\" already existed at this target, most likely "
+            "from a previous migrate-root attempt.\n"
+        )
+
+    notice = legacy_dest / "_LEGACY_NOTICE.md"
+    notice.write_text(
+        "# Legacy UDO v4.x installation (root layout)\n\n"
+        "This directory holds the original UDO v4.x protocol files and data.\n"
+        "They used to sit directly at your project root, mixed in with your\n"
+        "own work files, before migration to UDO v2.2. They are kept here\n"
+        "for reference and audit only.\n\n"
+        "Do not edit files in this directory. The active project now lives in\n"
+        "\"UDO Project/\" at the repository root; the migration record is at\n"
+        "\"UDO Project/.project-catalog/decisions/\". Every root file or folder\n"
+        "that was not part of the recognized UDO v4.x set was left exactly\n"
+        "where it was, at the project root -- nothing else was moved.\n\n"
+        "This directory is never deleted by upgrade.py.\n"
+        f"{extra_note}",
+        encoding="utf-8",
+    )
+    return legacy_dest.name
+
+
 # ---------------------------------------------------------------------------
 # Reporting / decision records
 # ---------------------------------------------------------------------------
@@ -1193,7 +1475,17 @@ def print_manifest(manifest):
     for action, relpath in manifest:
         buckets.setdefault(action, []).append(relpath)
 
-    for label in ("ADD", "REPLACE", "TRANSFORM", "PRESERVE"):
+    # PORT and LEGACY (migrate-root only) are printed as their own sections,
+    # positioned between REPLACE and TRANSFORM, but only when the manifest
+    # actually contains them -- so fresh/upgrade/migrate output is unchanged.
+    order = ["ADD", "REPLACE"]
+    if "PORT" in buckets:
+        order.append("PORT")
+    if "LEGACY" in buckets:
+        order.append("LEGACY")
+    order += ["TRANSFORM", "PRESERVE"]
+
+    for label in order:
         items = buckets.get(label, [])
         print(f"{label} ({len(items)}):")
         if not items:
@@ -1240,7 +1532,7 @@ def write_decision_record(target, mode, source_version, manifest, backup_dir):
     return record_path
 
 
-def write_migration_record(target, unmapped_by_lane, legacy_dir_name=LEGACY_DIR_NAME):
+def write_migration_record(target, unmapped_by_lane, legacy_dir_name=LEGACY_DIR_NAME, mode="migrate"):
     date = datetime.date.today().isoformat()
     decisions_dir = target / "UDO Project" / ".project-catalog" / "decisions"
     decisions_dir.mkdir(parents=True, exist_ok=True)
@@ -1250,13 +1542,14 @@ def write_migration_record(target, unmapped_by_lane, legacy_dir_name=LEGACY_DIR_
         "# v4.x to v2.2 migration record",
         "",
         f"- Date: {date}",
+        f"- Mode: {mode}",
         f"- Legacy installation preserved at: {legacy_dir_name}/",
     ]
     if legacy_dir_name != LEGACY_DIR_NAME:
         lines.append(
             f"- Note: renamed to a timestamp-suffixed name because \"{LEGACY_DIR_NAME}/\" "
             "already existed at this target (most likely a retry after an earlier "
-            "migrate attempt)."
+            f"{mode} attempt)."
         )
     lines += [
         "",
@@ -1313,7 +1606,7 @@ def build_arg_parser():
     parser.add_argument("--dry-run", action="store_true", help="Print the manifest and exit without changing anything")
     parser.add_argument("--yes", action="store_true", help="Do not prompt for confirmation")
     parser.add_argument("--source", default=None, help="Local directory or URL to a zip, used instead of the default GitHub release")
-    parser.add_argument("--mode", choices=["fresh", "upgrade", "migrate", "refresh"], default=None, help="Force a mode instead of auto-detecting")
+    parser.add_argument("--mode", choices=["fresh", "upgrade", "migrate", "migrate-root", "refresh"], default=None, help="Force a mode instead of auto-detecting")
     return parser
 
 
@@ -1372,6 +1665,8 @@ def main(argv=None):
         legacy_dir_name = LEGACY_DIR_NAME
         if lane_mode == "migrate":
             unmapped_by_lane, legacy_dir_name = _apply_migrate(manifest, target, source)
+        elif lane_mode == "migrate-root":
+            unmapped_by_lane, legacy_dir_name = _apply_migrate_root(manifest, target, source)
         else:
             apply(manifest, lane_mode, target, source)
             unmapped_by_lane = {}
@@ -1385,13 +1680,14 @@ def main(argv=None):
             print("Restore it if needed before retrying.")
             return 1
 
-        if mode == "migrate":
-            migration_record = write_migration_record(target, unmapped_by_lane, legacy_dir_name)
+        if mode in ("migrate", "migrate-root"):
+            migration_record = write_migration_record(target, unmapped_by_lane, legacy_dir_name, mode=mode)
             print(f"Migration record written: {migration_record}")
             if legacy_dir_name != LEGACY_DIR_NAME:
                 print(
-                    f"Note: legacy UDO/ was renamed to \"{legacy_dir_name}/\" (timestamp-suffixed) "
-                    f"because \"{LEGACY_DIR_NAME}/\" already existed at this target."
+                    f"Note: legacy v4.x install was renamed to \"{legacy_dir_name}/\" "
+                    f"(timestamp-suffixed) because \"{LEGACY_DIR_NAME}/\" already existed "
+                    "at this target."
                 )
 
         record_path = write_decision_record(target, mode, source_version, manifest, backup_dir)

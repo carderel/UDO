@@ -1,6 +1,6 @@
 # UDO: Universal Dynamic Orchestrator
 
-**Current version: 2.2.1**
+**Current version: 2.2.2**
 
 **Multi-LLM Safe Session Orchestration Framework**
 
@@ -55,11 +55,11 @@ python3 upgrade.py --dry-run
 python3 upgrade.py
 ```
 
-`upgrade.py` auto-detects what you have (a fresh directory, an existing v2.x project, or a legacy single-folder v4.x `UDO/` install) and prints a manifest, one line per path, tagged ADD, REPLACE, TRANSFORM, or PRESERVE, before it changes anything. `--dry-run` just prints that manifest and exits. A real run shows the same manifest, asks for confirmation (skip with `--yes`), then backs up the whole target to `.udo-backup-<timestamp>/`, applies exactly the manifest it printed, and finishes by running `validate.py` against the result. If self-validation fails, the upgrade stops and reports the backup path so you can restore.
+`upgrade.py` auto-detects what you have (a fresh directory, an existing v2.x project, a legacy v4.x install with everything inside a single `UDO/` subfolder, or a legacy v4.x install with the protocol files sitting directly at the project root, mixed in with your own work) and prints a manifest, one line per path, tagged ADD, REPLACE, TRANSFORM, or PRESERVE, before it changes anything. `--dry-run` just prints that manifest and exits. A real run shows the same manifest, asks for confirmation (skip with `--yes`), then backs up the whole target to `.udo-backup-<timestamp>/`, applies exactly the manifest it printed, and finishes by running `validate.py` against the result. If self-validation fails, the upgrade stops and reports the backup path so you can restore.
 
-A legacy v4.x `UDO/` install is carried forward in full: everything under it is ported into the new `UDO Framework/` + `UDO Project/` layout, the old `UDO/` folder is renamed to `UDO-v4-LEGACY-DO-NOT-EDIT/` (kept for reference, never deleted), and a migration record is written to `UDO Project/.project-catalog/decisions/`.
+A legacy v4.x `UDO/` install is carried forward in full: everything under it is ported into the new `UDO Framework/` + `UDO Project/` layout, the old `UDO/` folder is renamed to `UDO-v4-LEGACY-DO-NOT-EDIT/` (kept for reference, never deleted), and a migration record is written to `UDO Project/.project-catalog/decisions/`. If instead your v4.x protocol files sit directly at the project root (no `UDO/` subfolder), `upgrade.py` recognizes that shape too (`--mode migrate-root`, auto-detected when three or more of `ORCHESTRATOR.md`, `HARD_STOPS.md`, `PROJECT_STATE.json`, `COMMANDS.md`, and `REASONING_CONTRACT.md` are present at the root): the recognized v4.x files and folders are ported into `UDO Project/` and then moved into `UDO-v4-LEGACY-DO-NOT-EDIT/`, and everything else at the root, your own files, is left exactly where it was. If only one or two of those markers are present, the auto-detector refuses to guess and asks for an explicit `--mode` instead of risking a fresh install overwriting a partial v4.x install.
 
-Other flags: `--source <path-or-url>` installs from a local checkout or zip instead of the default GitHub release; `--mode fresh|upgrade|migrate|refresh` forces a lane instead of auto-detecting, required if `UDO Framework/VERSION` is missing, empty, or unparseable. `upgrade.sh` (Linux/macOS) and `upgrade.ps1` (Windows) are thin wrappers around the same script and take the same flags.
+Other flags: `--source <path-or-url>` installs from a local checkout or zip instead of the default GitHub release; `--mode fresh|upgrade|migrate|migrate-root|refresh` forces a lane instead of auto-detecting, required if `UDO Framework/VERSION` is missing, empty, or unparseable. `upgrade.sh` (Linux/macOS) and `upgrade.ps1` (Windows) are thin wrappers around the same script and take the same flags.
 
 ## Directory Structure
 
@@ -142,6 +142,10 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 The legacy v4.x series (v4.9, v4.10, and earlier) was superseded by the v2.0 rewrite above; it is not compatible with this repository and is not maintained.
 
 ## Changelog
+
+### v2.2.2 (2026-08-05)
+
+- v4-at-root installs now migrate automatically; fresh mode refuses ambiguous targets
 
 ### v2.2.1 (2026-08-05)
 
