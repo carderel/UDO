@@ -443,9 +443,33 @@ def _exists_at(target, relpath):
     return (target / relpath).exists()
 
 
+def _claude_manifest_entries(target):
+    """Manifest entries for ".claude" wherever a FRESH_TOP_LEVEL loop would
+    otherwise blanket-REPLACE it. A real .claude/ can hold a user's
+    settings.local.json (permission allowlist), MCP config, and installed
+    plugins -- none of that may ever be replaced or deleted. If present, the
+    whole directory is PRESERVEd untouched, and only settings.json is added
+    inside it if that one file happens to be absent (mirrors
+    ROOT_LANE_ADD_IF_ABSENT, the existing v2.x upgrade lane's pattern for the
+    same file). If .claude does not exist at all, it is a plain new-install
+    ADD of the whole tree from source, same as any other fresh top-level
+    item."""
+    claude_dir = target / ".claude"
+    if not claude_dir.is_dir():
+        return [("ADD", ".claude")]
+    settings = claude_dir / "settings.json"
+    return [
+        ("PRESERVE", ".claude"),
+        ("PRESERVE" if settings.exists() else "ADD", ".claude/settings.json"),
+    ]
+
+
 def _manifest_fresh(target):
     manifest = []
     for item in FRESH_TOP_LEVEL:
+        if item == ".claude":
+            manifest.extend(_claude_manifest_entries(target))
+            continue
         action = "REPLACE" if _exists_at(target, item) else "ADD"
         manifest.append((action, item))
     return manifest
@@ -552,11 +576,26 @@ def _manifest_migrate_root(target):
     entry that is not recognized as v4 and not part of the v2.2 structure:
     the user's own work, named explicitly so they can see it will not be
     touched).
+
+    A path never appears under both REPLACE and LEGACY: README.md and
+    START_HERE.md are both a FRESH_TOP_LEVEL item AND a recognized v4 root
+    file. By the time the new v2.2 copy is placed, the old one has already
+    been moved into the legacy folder (see apply order in
+    _apply_migrate_root), so that placement is an ADD into a now-empty
+    slot, not an in-place REPLACE of a file that is still sitting there --
+    it is listed under ADD (once) and LEGACY (once), never REPLACE.
     """
     manifest = []
+    recognized = set(V4_ROOT_RECOGNIZED_FILES) | set(V4_ROOT_RECOGNIZED_DIRS)
 
     for item in FRESH_TOP_LEVEL:
         if item == "UDO Project":
+            continue
+        if item == ".claude":
+            manifest.extend(_claude_manifest_entries(target))
+            continue
+        if item in recognized:
+            manifest.append(("ADD", item))
             continue
         action = "REPLACE" if _exists_at(target, item) else "ADD"
         manifest.append((action, item))
@@ -572,7 +611,6 @@ def _manifest_migrate_root(target):
     for item in _v4_root_recognized_present(target):
         manifest.append(("LEGACY", f"{item} -> {LEGACY_DIR_NAME}/{item}"))
 
-    recognized = set(V4_ROOT_RECOGNIZED_FILES) | set(V4_ROOT_RECOGNIZED_DIRS)
     fresh_names = set(FRESH_TOP_LEVEL)
     if target.is_dir():
         for entry in sorted(target.iterdir(), key=lambda p: p.name):
@@ -591,7 +629,12 @@ def _manifest_migrate_root(target):
 # ---------------------------------------------------------------------------
 
 def _is_backup_excluded_name(name):
-    return name in {".git", ".superpowers"} or name.startswith(EXCLUDE_DIR_PREFIXES)
+    """Shares EXCLUDE_DIR_NAMES (.git, .superpowers, node_modules) with the
+    source-tree scan, plus the backup-specific .udo-backup* prefix. A real
+    v4-at-root target is often an app repo; without this, backing it up
+    before every upgrade/migrate copies node_modules (and anything else the
+    source scan already knows to skip) right along with it."""
+    return name in EXCLUDE_DIR_NAMES or name.startswith(EXCLUDE_DIR_PREFIXES)
 
 
 def _backup_ignore(dir_path, names):
@@ -662,12 +705,19 @@ def _backup_failure_error(exc):
 
 def backup(target):
     """Copy target into target/.udo-backup-<timestamp>/, excluding
-    .udo-backup*, .git, .superpowers (kills nested-backup recursion since the
-    new backup directory is never part of the pre-computed source listing).
+    EXCLUDE_DIR_NAMES (.git, .superpowers, node_modules -- the same set the
+    source-tree scan uses) plus .udo-backup* (kills nested-backup recursion
+    since the new backup directory is never part of the pre-computed source
+    listing).
 
     If that name is already taken (e.g. a second upgrade run within the same
     second), append -2, -3, ... until an unused name is found, rather than
-    failing the upgrade outright."""
+    failing the upgrade outright.
+
+    Returns (backup_dir, excluded_count): excluded_count is the number of
+    top-level and nested entries skipped for being an excluded name, so the
+    caller can report it (a real target may be an app repo with a large
+    node_modules/ that should never balloon the backup)."""
     timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     base_name = f".udo-backup-{timestamp}"
     backup_dir = target / base_name
@@ -681,21 +731,30 @@ def backup(target):
     except OSError as exc:
         raise _backup_failure_error(exc) from exc
 
+    excluded_count = 0
+
+    def _counting_ignore(dir_path, names):
+        skipped = _backup_ignore(dir_path, names)
+        nonlocal excluded_count
+        excluded_count += len(skipped)
+        return skipped
+
     top_level_names = sorted(p.name for p in target.iterdir() if p.name != backup_dir.name)
     for name in top_level_names:
         if _is_backup_excluded_name(name):
+            excluded_count += 1
             continue
         src = target / name
         dst = backup_dir / name
         try:
             if src.is_dir():
-                shutil.copytree(src, dst, ignore=_backup_ignore)
+                shutil.copytree(src, dst, ignore=_counting_ignore)
             else:
                 shutil.copy2(src, dst)
         except (shutil.Error, OSError) as exc:
             shutil.rmtree(backup_dir, ignore_errors=True)
             raise _backup_failure_error(exc) from exc
-    return backup_dir
+    return backup_dir, excluded_count
 
 
 # ---------------------------------------------------------------------------
@@ -1130,6 +1189,8 @@ def apply(manifest, lane_mode, target, source):
 
 def _apply_fresh(manifest, target, source):
     for action, relpath in manifest:
+        if action == "PRESERVE":
+            continue  # .claude, when it already exists -- never touched
         if action == "ADD":
             copy_path_from_source(relpath, target, source)
         elif action == "REPLACE":
@@ -1345,7 +1406,7 @@ def _finalize_legacy_rename(legacy_root, target):
     return legacy_dest.name
 
 
-def _apply_migrate_root(manifest, target, source):
+def _apply_migrate_root(manifest, target, source, progress=None):
     """Apply the migrate-root lane: a v4.x install whose protocol files sit
     directly at the project root, mixed with the user's own work, rather
     than inside a "UDO/" subfolder. Mirrors _apply_migrate's structure and
@@ -1361,6 +1422,12 @@ def _apply_migrate_root(manifest, target, source):
        item that could collide with a fresh top-level name (README.md,
        START_HERE.md, ...) has already been moved into the legacy folder,
        so this step never overwrites a v4 file unseen.
+
+    `progress`, if given, is a {"lane": ..., "phase": ...} dict mutated in
+    place so main()'s failure handlers can give lane/phase-accurate restore
+    guidance instead of a generic message -- see _failure_guidance(). It is
+    set to "legacy_done" right after step 2 completes, the point past which
+    the original v4.x files are no longer at their original location.
 
     Returns (unmapped_by_lane, legacy_dir_name), same contract as
     _apply_migrate.
@@ -1383,6 +1450,8 @@ def _apply_migrate_root(manifest, target, source):
     legacy_dir_name = _finalize_legacy_root_rename(legacy_items, target)
     if legacy_dir_name is None:
         legacy_dir_name = LEGACY_DIR_NAME
+    if progress is not None:
+        progress["phase"] = "legacy_done"
 
     for action, relpath in manifest:
         if relpath == "UDO Project" or action in ("PORT", "LEGACY", "PRESERVE"):
@@ -1610,6 +1679,37 @@ def build_arg_parser():
     return parser
 
 
+def _failure_guidance(progress, backup_dir):
+    """Restore guidance for a failure, tailored to how far apply actually
+    got (tracked via `progress`, a simple {"lane": ..., "phase": ...} dict
+    mutated in place by the apply function) rather than one generic message
+    for every lane and phase.
+
+    migrate-root is the case that needs this: once its LEGACY step has run,
+    the original v4.x root files no longer exist at their original
+    location -- they were moved (Path.rename), not copied -- so "just
+    restore the backup" on its own does not tell the user where things
+    actually are or what "restore" means here. Every other lane/phase keeps
+    the previous generic message.
+    """
+    if backup_dir is None:
+        return None
+    if progress.get("lane") == "migrate-root" and progress.get("phase") == "legacy_done":
+        return (
+            f"Your original v4.x files have already been moved into {LEGACY_DIR_NAME}/ "
+            "at the target root; they are no longer at their original location.\n"
+            f"A full copy of the project exactly as it was before this run is at: {backup_dir}\n"
+            "To restore: delete the partially-created v2.2 items (\"UDO Project\", "
+            "\"UDO Framework\", DOCUMENTATION, TOOLS, README.md, START_HERE.md, "
+            f"{LEGACY_DIR_NAME}/, and any other new top-level item from this run), then "
+            "copy everything back from the backup above."
+        )
+    return (
+        f"The target may be in a partially-applied state. Backup is at: {backup_dir}\n"
+        "Restore it if needed before retrying."
+    )
+
+
 def main(argv=None):
     parser = build_arg_parser()
     args = parser.parse_args(argv)
@@ -1618,6 +1718,7 @@ def main(argv=None):
 
     cleanup_dir = None
     backup_dir = None
+    progress = {"lane": None, "phase": None}
     try:
         source, cleanup_dir = fetch_source(args.source)
         _guard_source_not_target(target, source)
@@ -1631,6 +1732,7 @@ def main(argv=None):
 
         mode = detection.mode
         lane_mode = "upgrade" if mode == "refresh" else mode
+        progress["lane"] = lane_mode
 
         manifest = build_manifest(lane_mode, target, source)
 
@@ -1659,14 +1761,14 @@ def main(argv=None):
         # TARGET_DIR must leave it absent, per the "no changes" contract.
         target.mkdir(parents=True, exist_ok=True)
 
-        backup_dir = backup(target)
-        print(f"Backup created at: {backup_dir}")
+        backup_dir, excluded_count = backup(target)
+        print(f"Backup created at: {backup_dir} ({excluded_count} entries excluded: node_modules, .git, etc.)")
 
         legacy_dir_name = LEGACY_DIR_NAME
         if lane_mode == "migrate":
             unmapped_by_lane, legacy_dir_name = _apply_migrate(manifest, target, source)
         elif lane_mode == "migrate-root":
-            unmapped_by_lane, legacy_dir_name = _apply_migrate_root(manifest, target, source)
+            unmapped_by_lane, legacy_dir_name = _apply_migrate_root(manifest, target, source, progress)
         else:
             apply(manifest, lane_mode, target, source)
             unmapped_by_lane = {}
@@ -1676,8 +1778,9 @@ def main(argv=None):
             print("")
             print("UPGRADE FAILED: self-verification (validate.py) reported errors.")
             print(output)
-            print(f"Backup is at: {backup_dir}")
-            print("Restore it if needed before retrying.")
+            guidance = _failure_guidance(progress, backup_dir)
+            if guidance:
+                print(guidance)
             return 1
 
         if mode in ("migrate", "migrate-root"):
@@ -1699,10 +1802,9 @@ def main(argv=None):
 
     except UpgradeError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
-        if backup_dir is not None:
-            print(f"The target may be in a partially-applied state. Backup is at: {backup_dir}",
-                  file=sys.stderr)
-            print("Restore it if needed before retrying.", file=sys.stderr)
+        guidance = _failure_guidance(progress, backup_dir)
+        if guidance:
+            print(guidance, file=sys.stderr)
         return 1
     finally:
         if cleanup_dir is not None:
