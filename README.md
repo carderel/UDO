@@ -32,7 +32,18 @@ Then start your LLM CLI from that folder and say: Read 'UDO Framework/START_HERE
 
 ### Upgrading an existing UDO project
 
-The bundled `upgrade.sh` / `upgrade.ps1` scripts predate the v2 two-folder layout and are being redesigned in a separate workstream. Until they ship, upgrade manually: back up your project, replace the `UDO Framework/` folder with the one from a fresh clone of `https://github.com/carderel/UDO-v2.0`, and leave `UDO Project/` untouched.
+Preview the plan, then apply it:
+
+```bash
+python3 upgrade.py --dry-run
+python3 upgrade.py
+```
+
+`upgrade.py` auto-detects what you have (a fresh directory, an existing v2.x project, or a legacy single-folder v4.x `UDO/` install) and prints a manifest, one line per path, tagged ADD, REPLACE, TRANSFORM, or PRESERVE, before it changes anything. `--dry-run` just prints that manifest and exits. A real run backs up the whole target to `.udo-backup-<timestamp>/` first, asks for confirmation (skip with `--yes`), applies exactly the manifest it printed, and finishes by running `validate.py` against the result. If self-validation fails, the upgrade stops and reports the backup path so you can restore.
+
+A legacy v4.x `UDO/` install is carried forward in full: everything under it is ported into the new `UDO Framework/` + `UDO Project/` layout, the old `UDO/` folder is renamed to `UDO-v4-LEGACY-DO-NOT-EDIT/` (kept for reference, never deleted), and a migration record is written to `UDO Project/.project-catalog/decisions/`.
+
+Other flags: `--source <path-or-url>` installs from a local checkout or zip instead of the default GitHub release; `--mode fresh|upgrade|migrate|refresh` forces a lane instead of auto-detecting, required if `UDO Framework/VERSION` is missing, empty, or unparseable. `upgrade.sh` (Linux/macOS) and `upgrade.ps1` (Windows) are thin wrappers around the same script and take the same flags.
 
 ## Directory Structure
 
@@ -47,7 +58,7 @@ your-project/
 │   ├── COMMANDS.md            (session commands and shortcuts)
 │   └── [other framework files]
 │
-├── UDO Project/                ← Your isolated working context, upgrades never touch this
+├── UDO Project/                ← Your isolated working context, upgrades add missing pieces here but never overwrite your data
 │   ├── PROJECT_STATE.json     (current goal, phase, todos)
 │   ├── PROJECT_META.json      (project identity)
 │   ├── TOPICS.md              (parallel workstreams)
@@ -91,7 +102,7 @@ To extend the framework for your project:
 
 ## Upgrade Scripts
 
-The repository ships `upgrade.sh` (Linux/macOS) and `upgrade.ps1` (Windows), but both still target the pre-v2 layout and repos and are not yet a working upgrade path for this release. A v2-aware rewrite is planned as a separate workstream. Until then, use the manual upgrade steps above: replace `UDO Framework/` with a fresh clone of `https://github.com/carderel/UDO-v2.0` and leave `UDO Project/` untouched.
+`upgrade.py` is a single, cross-platform, stdlib-only Python script that does the actual work; `upgrade.sh` (Linux/macOS) and `upgrade.ps1` (Windows) are equivalents that just call it with whatever arguments you pass. See "Upgrading an existing UDO project" above for the flow and flags.
 
 ## Multi-LLM Coordination
 
@@ -131,6 +142,7 @@ The legacy v4.x series (v4.9, v4.10, and earlier) was superseded by the v2.0 rew
 - Skills + agents registries
 - HS-OUT-001
 - Documentation rewrite
+- Real `upgrade.py` (fresh/upgrade/migrate detection, dry-run manifest, self-validating)
 
 ## Contributing
 

@@ -11,7 +11,7 @@ your-project/
 ├── DOCUMENTATION/          ← you are here (learning and reference)
 ├── TOOLS/                  ← installed skills and agents registry
 ├── UDO Framework/          ← the protocol itself (replaced wholesale on upgrade)
-├── UDO Project/            ← your working context (upgrades never touch this)
+├── UDO Project/            ← your working context (upgrades preserve everything in it)
 ├── User Provided Files/    ← external references and handoffs
 └── [your project files]
 ```
@@ -19,7 +19,7 @@ your-project/
 Two of these folders carry the real architectural weight: `UDO Framework/` and `UDO Project/`. The split exists so an AI cannot accidentally modify shared protocol rules while doing project work.
 
 - `UDO Framework/` is read-only reference. When you upgrade UDO, this folder is replaced wholesale. You never edit it.
-- `UDO Project/` is yours. It holds state, sessions, agents, and memory. Upgrades never touch it.
+- `UDO Project/` is yours. It holds state, sessions, agents, and memory. Upgrades preserve it: existing files are never overwritten; only missing structural pieces get added.
 
 `TOOLS/`, `DOCUMENTATION/`, and `User Provided Files/` are supporting folders around that core split.
 
@@ -103,7 +103,7 @@ Subfolders (`.templates/`, `.takeover/`, `.tools/`) hold reusable templates and 
 
 ## UDO Project/ (Your Working Context)
 
-**Purpose:** everything that makes this project *this* project. Upgrades never touch it.
+**Purpose:** everything that makes this project *this* project. Upgrades preserve it: existing files are never overwritten; only missing structural pieces get added.
 
 ### When to enter UDO Project/
 
@@ -204,7 +204,11 @@ It only runs in Claude Code. If you're on a different LLM CLI, use `python3 vali
 
 ### "How do I upgrade UDO?"
 
-The bundled `upgrade.sh` / `upgrade.ps1` scripts predate the current two-folder layout and are being redesigned in a separate workstream. Until they ship, upgrade manually: back up your project, replace the `UDO Framework/` folder with the one from a fresh clone of `https://github.com/carderel/UDO-v2.0`, and leave `UDO Project/` untouched.
+Run `python3 upgrade.py --dry-run` first to see exactly what will change: a manifest tagged ADD, REPLACE, TRANSFORM, or PRESERVE for every affected path, printed without touching anything. Review it, then run `python3 upgrade.py` for real. It backs up the whole project to `.udo-backup-<timestamp>/` first, prompts for confirmation unless you pass `--yes`, applies the manifest, and finishes by running `validate.py` against the result, failing loudly with the backup path if self-validation does not pass.
+
+`upgrade.py` auto-detects a fresh directory, an existing v2.x project, or a legacy single-folder v4.x `UDO/` install. A v4.x install is migrated in full: everything under `UDO/` is ported into the new `UDO Framework/` + `UDO Project/` layout, the old `UDO/` folder is renamed to `UDO-v4-LEGACY-DO-NOT-EDIT/` (kept for reference, never deleted), and a migration record is written under `UDO Project/.project-catalog/decisions/`.
+
+Useful flags: `--source <path-or-url>` to install from a local checkout or zip instead of the default GitHub release; `--mode fresh|upgrade|migrate|refresh` to force a lane instead of auto-detecting, required if `UDO Framework/VERSION` is missing, empty, or unparseable. `upgrade.sh` (Linux/macOS) and `upgrade.ps1` (Windows) are equivalent wrappers around the same script.
 
 ### "How do I check I'm following protocol correctly?"
 
