@@ -2,53 +2,42 @@
 
 ## What It Is
 
-This folder contains the Takeover Module — a systematic approach for AI to audit and understand existing projects.
+This folder contains the Takeover Module: a set of auditor agent templates for systematically reviewing an existing codebase or project before doing further work on it.
 
 ## What It Does
 
-When you point AI at an existing codebase or project, Takeover provides:
-- Structured discovery process
-- Specialized auditor agents
-- Evidence collection
-- Findings consolidation
-- Knowledge capture for ongoing work
+When you point AI at an existing codebase or project, the templates in `agent-templates/` describe five specialized auditor roles AI can adopt (or spawn as subagents, where delegation is available) to investigate it:
 
-Instead of AI making assumptions about unfamiliar code, Takeover forces systematic investigation.
+- Structure
+- Documentation
+- Code quality
+- Security
+- Test coverage
+
+Instead of AI making assumptions about unfamiliar code, these templates push toward systematic investigation with concrete scope, methods, and evidence expectations per role.
 
 ## Why It's Included
 
 **Problem:** AI dropped into an existing project makes assumptions. It misses critical context. It breaks things because it doesn't understand dependencies. It gives confident but wrong answers about code it hasn't actually analyzed.
 
-**Solution:** Formal takeover process. Spawn auditor agents. Collect evidence. Build understanding systematically before taking action.
+**Solution:** Use these auditor templates to structure the review, one per area of concern, before taking action on unfamiliar code.
 
 ## Structure
 
 ```
 .takeover/
-├── TAKEOVER_ORCHESTRATOR.md    # Main takeover protocol
-├── discovery.json              # What to investigate
-├── scope-config.json           # Boundaries of audit
 ├── agent-templates/            # Auditor agent definitions
 │   ├── structure-auditor.md
 │   ├── documentation-auditor.md
 │   ├── code-quality-auditor.md
 │   ├── security-auditor.md
 │   └── test-auditor.md
-├── audits/                     # Completed audit reports
-├── evidence/                   # Supporting evidence
 └── README.md                   # This file
 ```
 
-## Takeover Process
+There is no separate orchestrator file, discovery config, or scope config for this module; the templates below are the entire module. There is no `audits/` or `evidence/` folder either; write any output the templates produce to the usual project locations (`.outputs/`, `.memory/canonical/`, or `.project-catalog/decisions/`, as appropriate).
 
-### Phase 1: Discovery
-- Map project structure
-- Identify key files and directories
-- Catalog technologies and dependencies
-- Note documentation locations
-
-### Phase 2: Audit
-Spawn specialized auditors:
+## Auditor Roles
 
 | Auditor | Focus |
 |---------|-------|
@@ -58,16 +47,15 @@ Spawn specialized auditors:
 | Security | Vulnerabilities, auth, data handling |
 | Test | Coverage, test quality, CI/CD |
 
-### Phase 3: Synthesis
-- Consolidate findings
-- Identify critical issues
-- Create action recommendations
-- Capture in canonical memory
+## Using a Template
 
-### Phase 4: Handoff
-- Update PROJECT_STATE.json with findings
-- Create LESSONS_LEARNED entries
-- Prepare for ongoing work
+Each auditor template in `agent-templates/` defines:
+- **Scope** - what to examine
+- **Methods** - how to investigate
+- **Outputs** - what to produce
+- **Evidence** - what to collect
+
+Open the relevant template, adopt (or delegate to) that role, and follow its scope and methods. Save findings using the project's normal memory and decision-log locations rather than a dedicated takeover output folder, since none exists.
 
 ## When to Use Takeover
 
@@ -77,56 +65,9 @@ Spawn specialized auditors:
 - Due diligence on acquisitions
 - Security/quality assessments
 
-## Auditor Agents
-
-Each auditor is a specialized agent with:
-- **Scope** — What to examine
-- **Methods** — How to investigate
-- **Outputs** — What to produce
-- **Evidence** — What to collect
-
-Example: `structure-auditor.md`
-```markdown
-# Structure Auditor
-
-## Scope
-- Directory organization
-- Module/package structure
-- Dependency graph
-- Entry points
-
-## Methods
-1. Map directory tree
-2. Identify patterns (MVC, microservices, etc.)
-3. Trace imports/dependencies
-4. Locate configuration files
-
-## Outputs
-- Structure diagram
-- Pattern identification
-- Dependency map
-- Recommendations
-
-## Evidence
-- File listings
-- Import traces
-- Config file contents
-```
-
-## Audit Reports
-
-Completed audits go in `audits/`:
-```
-audits/
-├── structure-audit-2026-02-06.md
-├── security-audit-2026-02-06.md
-└── consolidated-findings.md
-```
-
 ## Integration with UDO
 
-After takeover:
+After a takeover review:
 - Findings become canonical facts in `.memory/canonical/`
-- Issues become todos in PROJECT_STATE.json
-- Lessons go to LESSONS_LEARNED.md
-- Evidence preserved in `.takeover/evidence/`
+- Issues become todos in `PROJECT_STATE.json`
+- Lessons go to `LESSONS_LEARNED.md`

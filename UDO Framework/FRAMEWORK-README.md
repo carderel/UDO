@@ -8,7 +8,7 @@ The UDO Framework is the immutable core of the Universal Dynamic Orchestrator. T
 - **ORCHESTRATOR.md** - Main framework specification and session management protocol
 - **START_HERE.md** - Entry point for new users and agents
 - **COMMANDS.md** - Available framework commands and their functions
-- **HARD_STOPS.md** - Critical protocol rules and boundaries (HS-UDO-001 through HS-UDO-009)
+- **HARD_STOPS.md** - Critical protocol rules and boundaries. See HARD_STOPS.md for the authoritative list (some IDs are retired tombstones).
 
 ### Protocol Files
 - **REASONING_CONTRACT.md** - Standards for agent reasoning and decision-making
@@ -22,7 +22,6 @@ The UDO Framework is the immutable core of the Universal Dynamic Orchestrator. T
 - **HANDOFF_PROMPT.md** - Template for agent handoff prompts
 
 ### Infrastructure
-- **.bridge/** - AI-agnostic bridge protocol for multi-agent coordination
 - **.templates/** - Reusable templates for agents, projects, and components
 - **.takeover/** - Agent takeover templates and procedures
 - **.tools/** - Framework tools and utilities

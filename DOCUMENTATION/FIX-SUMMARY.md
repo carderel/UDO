@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-All **CRITICAL (CR-001 to CR-003)** and **HIGH-SEVERITY (HS-001 to HS-004)** fixes from RED-TEAM-REPORT.md have been successfully applied to the v2.0 build.
+All **CRITICAL (CR-001 to CR-003)** and **HIGH-SEVERITY (HS-001 to HS-004)** fixes from RED-TEAM-REPORT-v2.0.md (repository root; historical artifact, not installed by `upgrade.py`) have been successfully applied to the v2.0 build.
 
 **Result:** **APPROVED FOR RELEASE** ✓
 

@@ -29,9 +29,9 @@ Read this before presenting or sharing the deliverable.
 
 ### Supporting Findings
 
-1. **{Finding 1}** — {Why it matters}
-2. **{Finding 2}** — {Why it matters}
-3. **{Finding 3}** — {Why it matters}
+1. **{Finding 1}**: {Why it matters}
+2. **{Finding 2}**: {Why it matters}
+3. **{Finding 3}**: {Why it matters}
 
 ---
 

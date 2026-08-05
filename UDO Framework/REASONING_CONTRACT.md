@@ -1,6 +1,6 @@
 # Reasoning Contract
 
-This document defines **how the AI must think** during analysis, research, and decision-making. These are not stylistic guidelines—they are logical constraints that prevent confident but flawed conclusions.
+This document defines **how the AI must think** during analysis, research, and decision-making. These are not stylistic guidelines: they are logical constraints that prevent confident but flawed conclusions.
 
 **This contract applies whenever:**
 - Gathering or analyzing information
@@ -72,7 +72,7 @@ Anyone reviewing the work should be able to follow the logical chain from eviden
 
 ### The False Consensus
 ❌ "Everyone agrees that..."
-✅ "[Source A] states X. [Source B] states Y. Conflict exists—documenting both positions."
+✅ "[Source A] states X. [Source B] states Y. Conflict exists, documenting both positions."
 
 ### The Premature Conclusion
 ❌ "Therefore, the answer is..."
@@ -228,7 +228,7 @@ Problems: No evidence, no confidence level, no sources, "clearly" hides assumpti
 
 ## Integration with UDO
 
-This Reasoning Contract is **Layer 0.5**—it sits between HARD_STOPS (which are absolute) and operational rules (which are procedural).
+This Reasoning Contract is **Layer 0.5**: it sits between HARD_STOPS (which are absolute) and operational rules (which are procedural).
 
 | Layer | Document | Governs |
 |-------|----------|---------|

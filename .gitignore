@@ -51,10 +51,6 @@ UDO Project/.memory/disposable/*
 UDO Project/User Uploads/*
 !UDO Project/User Uploads/.gitkeep
 
-# Session data - transient
-UDO Project/.project-catalog/sessions/*
-!UDO Project/.project-catalog/sessions/.gitkeep
-
 # Keep history for recovery
 # UDO Project/.project-catalog/history/* is intentionally NOT ignored
 
@@ -62,14 +58,10 @@ UDO Project/.project-catalog/sessions/*
 UDO Project/.project-catalog/backups/*
 !UDO Project/.project-catalog/backups/.gitkeep
 
-# Checkpoints - exclude large checkpoint files
-UDO Project/.project-catalog/checkpoints/*
-!UDO Project/.project-catalog/checkpoints/.gitkeep
-
-UDO Project/.checkpoints/*
-!UDO Project/.checkpoints/.gitkeep
-
 # Do NOT ignore .project-catalog itself - it contains important metadata
 # Do NOT ignore .memory/canonical - it's the source of truth
 # Do NOT ignore PROJECT_STATE.json - it's tracked
 # Do NOT ignore PROJECT_META.json - it's tracked
+
+# UDO hook runtime state - not part of the tracked protocol
+UDO Project/.udo/hook-state.json

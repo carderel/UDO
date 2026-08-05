@@ -8,8 +8,8 @@
 
 When multiple AI assistants work on the same project, isolation is critical. v2.0 separates:
 
-- **`/UDO Framework/`** — The immutable reference files (read-only for your project)
-- **`/UDO Project/`** — Your working context (where you read and write)
+- **`/UDO Framework/`**: the immutable reference files (read-only for your project)
+- **`/UDO Project/`**: your working context (where you read and write)
 
 This prevents AI agents from accidentally modifying framework rules while still allowing project-specific customization.
 
@@ -25,8 +25,6 @@ Your Project Root
 │   └── [all other protocol files]
 │
 └── /UDO Project/                   ← Your working context
-    ├── START_HERE.md               (Read from Framework, can be empty)
-    ├── ORCHESTRATOR.md             (Reference Framework)
     ├── HARD_STOPS.md               (Extend Framework rules here)
     ├── PROJECT_STATE.json
     ├── .project-catalog/           (sessions, decisions, history)
@@ -41,7 +39,7 @@ Your Project Root
 |------|--------------|-----------|
 | Core orchestration rules | `/UDO Framework/ORCHESTRATOR.md` | Read-only reference |
 | Hard stops (immutable) | `/UDO Framework/HARD_STOPS.md` | Reference in `/UDO Project/HARD_STOPS.md` |
-| Hard stops (project-specific) | N/A | Add HS-UDO-014 through HS-UDO-016 in `/UDO Project/HARD_STOPS.md` |
+| Hard stops (project-specific) | N/A | Add project-specific hard stops in `/UDO Project/HARD_STOPS.md` (see that file for current numbering) |
 | Session logs | N/A | `/UDO Project/.project-catalog/sessions/` |
 | Decisions | N/A | `/UDO Project/.project-catalog/decisions/` |
 | Memory (canonical) | N/A | `/UDO Project/.memory/canonical/` |
@@ -84,7 +82,7 @@ cp -r /template/UDO\ Framework ./UDO\ Framework  # ✓ CORRECT
 Do not proceed until you have:
 1. Read ORCHESTRATOR.md completely
 2. Understood the SESSION LOGGING requirement (you MUST log every session)
-3. Understood CHECKPOINT triggers (auto-save after 3 todos, phase completions)
+3. Understood CHECKPOINT triggers (checkpoint at phase completion, before risky operations, and at session end)
 4. Understood when to CREATE AGENTS (2+ distinct personas needed)
 5. Understood the MEMORY SYSTEM (canonical/working/disposable)
 6. Understood the DUAL-MODE SYSTEM (RC mode for analysis, Persona mode for delivery)
@@ -99,20 +97,24 @@ Do not proceed until you have:
 Complete these orientation steps:
 
 1. **Check hard stops:** `HARD_STOPS.md` (rules you must NEVER violate)
-2. **Check reasoning contract:** `REASONING_CONTRACT.md` (how to think during analysis)
-3. **Check current status:** `PROJECT_STATE.json`
-4. **Check lessons:** `LESSONS_LEARNED.md` (mistakes to avoid)
-5. **Know your environment:** `CAPABILITIES.json`
-6. **Check recent sessions:** `.project-catalog/sessions/` (most recent file)
-7. **Check bridge status:** `.bridge/bridge-state.json` (if bridge module is active)
+2. **Declare your delegation capability (MANDATORY).** Determine whether this harness can spawn subagents. Write the result to CAPABILITIES.json (`delegation` block) and include ONE of these lines in your orientation report:
+   - "Delegation: AVAILABLE via [mechanism]. Custom agents sync from .agents/."
+   - "Delegation: NOT AVAILABLE in [harness]. All specialized work will execute in this context window. PROJECT_HS_002 suspended (logged). Checkpoint cadence tightened."
+   If the stored value differs from what you detect (LLM switch), say so explicitly: "Previous session had [X]; this session has [Y]. Planned delegated work will run [accordingly]."
+3. **Check reasoning contract:** `REASONING_CONTRACT.md` (how to think during analysis)
+4. **Check current status:** `PROJECT_STATE.json`
+5. **Check lessons:** `LESSONS_LEARNED.md` (mistakes to avoid)
+6. **Know your environment:** `CAPABILITIES.json`
+7. **Check recent sessions:** `.project-catalog/sessions/` (most recent file)
 
 ## Then Give Your Orientation Report:
 
 > "I've read ORCHESTRATOR.md and REASONING_CONTRACT.md and reviewed the project.
 > - **Goal:** [from PROJECT_STATE.json]
 > - **Phase:** [current phase]
+> - **Delegation:** [AVAILABLE via ... | NOT AVAILABLE, single-context mode]
 > - **Last session:** [summary from most recent session log]
-> - **Transcript:** [path if exists, or "none"] — offer to review if user wants additional context
+> - **Transcript:** [path if exists, or "none"]; offer to review if user wants additional context
 > - **Next steps:** [from PROJECT_STATE.json or last session]
 > Ready to continue."
 
@@ -162,9 +164,6 @@ Complete these orientation steps:
 | `cp` | Checkpoint this |
 | `bf` | Backfill sessions |
 | `cc` | Compliance check |
-| `br` | Bridge request |
-| `cb` | Check bridge |
-| `bs` | Bridge status |
 | `bu` | Backup (full mid-session save) |
 
 ---
@@ -189,16 +188,16 @@ Before starting ANY work, confirm you will:
 - [ ] Write/append to transcript in real-time after each response (before accepting next prompt)
 - [ ] Log this session to `/UDO Project/.project-catalog/sessions/` before ending
 - [ ] Append archive marker to transcript when ending session
-- [ ] Auto-checkpoint after every 3 completed todos
+- [ ] Checkpoint at phase completion, before risky operations, and at session end
 - [ ] Create agents if task requires 2+ distinct personas
 - [ ] Document major decisions in `/UDO Project/.project-catalog/decisions/`
 - [ ] Use memory system for facts discovered during work in `/UDO Project/.memory/`
 - [ ] Update `/UDO Project/PROJECT_STATE.json` after completing work
 - [ ] Use RC mode for analysis, Persona mode for delivery
 - [ ] Create handoff packet before switching from RC to Persona mode
-- [ ] **New in v2.0:** NEVER modify files in `/UDO Framework/` — extend rules in `/UDO Project/HARD_STOPS.md` instead
+- [ ] **New in v2.0:** NEVER modify files in `/UDO Framework/`; extend rules in `/UDO Project/HARD_STOPS.md` instead
 - [ ] **New in v2.0:** When multiple AIs work the same project, read `/UDO Project/PROJECT_STATE.json` before updating (HS-UDO-015)
 
 **If you find yourself working without logging, STOP and catch up.**
 **If you find yourself making claims without evidence, STOP and engage RC mode.**
-**If you find yourself modifying framework files, STOP — your changes go in `/UDO Project/` instead.**
+**If you find yourself modifying framework files, STOP: your changes go in `/UDO Project/` instead.**

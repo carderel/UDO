@@ -2,115 +2,24 @@
 
 ## What It Is
 
-This folder contains tool adapters, configurations, and integrations that extend UDO's capabilities.
+This folder is retained for backward compatibility. It is not the active tools registry.
 
-## What It Does
+## Where Tools Actually Live
 
-Tools connect UDO to external services and capabilities:
-- Search adapters (web search, internal search)
-- Storage adapters (databases, file systems)
-- Data adapters (APIs, data sources)
-- Communication adapters (email, Slack, notifications)
-- Execution adapters (code runners, CI/CD)
+The project's real tool and skill registry is the root `TOOLS/` folder, not this one. See:
 
-Each adapter defines how to interact with a specific tool or service.
+- `TOOLS/README.md` - registry overview and how installing a skill works
+- `TOOLS/SKILLS_INDEX.md` - installed skills, one row each
+- `TOOLS/CATALOG.md` - cached catalog of skills available to install
+- `TOOLS/CATALOG-AGENTS.md` - cached catalog of agents available to install
+- `TOOLS/skills/` - the installed skill folders themselves
 
-## Why It's Included
+Installed agents are tracked separately in `UDO Project/.agents/`.
 
-**Problem:** Different AI platforms have different tool access. What works in Claude Code doesn't work in ChatGPT. Tool availability changes between environments. Without abstraction, tool usage is fragile and inconsistent.
+## Why This Folder Still Exists
 
-**Solution:** Define tool adapters that describe capabilities abstractly. AI checks what's available and uses appropriate methods. Same logic works across platforms.
+An earlier design proposed an adapters/installed/templates structure inside `UDO Framework/.tools/` (search adapters, storage adapters, per-project tool configs, and a tool-config template). That design was superseded by the simpler root `TOOLS/` registry described above and was never built out. This README previously documented that superseded design as if it existed; it did not. Nothing under this path should be relied on.
 
-## Structure
+## Never Auto-Install
 
-```
-.tools/
-├── adapters/               # Tool type definitions
-│   ├── search.md           # Search tool adapter
-│   ├── storage.md          # Storage tool adapter
-│   ├── data.md             # Data access adapter
-│   ├── communication.md    # Communication adapter
-│   └── execution.md        # Code execution adapter
-├── installed/              # Project-specific tool configs
-│   └── {tool-config}.json
-├── templates/
-│   └── tool-config.md      # Template for new tool configs
-└── README.md               # This file
-```
-
-## Adapter Structure
-
-Each adapter defines:
-- **Capability** — What the tool type does
-- **Methods** — How to invoke it
-- **Fallbacks** — What to do if unavailable
-- **Outputs** — What it returns
-
-Example (`adapters/search.md`):
-```markdown
-# Search Adapter
-
-## Capability
-Search for information from various sources
-
-## Methods
-1. Web search (if available)
-2. File search (local files)
-3. Memory search (.memory/ folder)
-
-## Fallback
-If no search tool available, check .memory/ and .inputs/
-
-## Outputs
-- Search results with sources
-- Relevance ranking
-- Source citations
-```
-
-## Tool Configuration
-
-For project-specific tools, add configs to `installed/`:
-
-```json
-{
-  "tool": "internal-api",
-  "type": "data",
-  "endpoint": "https://api.internal.com",
-  "auth": "See secrets manager",
-  "methods": ["GET", "POST"],
-  "rate_limit": "100/hour"
-}
-```
-
-## How Tools Are Used
-
-1. AI identifies need for tool capability
-2. AI reads relevant adapter in `.tools/adapters/`
-3. AI checks CAPABILITIES.json for availability
-4. AI uses available method or fallback
-5. Results incorporated into workflow
-
-## Environment Detection
-
-CAPABILITIES.json (in project root) declares what's available:
-
-```json
-{
-  "tools_available": {
-    "web_search": true,
-    "file_read": true,
-    "file_write": true,
-    "code_execution": true,
-    "bash_commands": false
-  }
-}
-```
-
-AI checks this before attempting tool use.
-
-## Adding New Tools
-
-1. Determine tool type (search, storage, data, communication, execution)
-2. Add config to `installed/` if project-specific
-3. Update CAPABILITIES.json if new capability
-4. Document usage in relevant adapter file
+A skill or agent is never installed without explicit user confirmation first. See the Capability Discovery section in `UDO Framework/ORCHESTRATOR.md` for the check-and-ask sequence that governs this.

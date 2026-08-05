@@ -1,116 +1,151 @@
-# Quick Start: Install & First Session (10 minutes)
+# Quick Start: Install and First Session
 
-Let's get UDO up and running in less than 10 minutes.
+Get UDO running in a few minutes.
 
-## Step 1: Install UDO (2 minutes)
+## Step 1: Get UDO
 
-Choose your platform:
+There is one source for UDO: `https://github.com/carderel/UDO`. Clone it or download the zip. Do not use any other repository; any older guide pointing elsewhere is out of date.
 
-### Mac / Linux
+### Starting a brand new project
+
+**Mac / Linux**
 
 ```bash
-curl -fsSL https://github.com/carderel/UDO-No-Script-Complete/archive/refs/heads/main.zip -o udo.zip && \
-unzip udo.zip && \
-mv UDO-No-Script-Complete-main/UDO ./UDO && \
-rm -rf udo.zip UDO-No-Script-Complete-main
+git clone https://github.com/carderel/UDO.git my-project
+cd my-project
 ```
 
-**What this does:**
-- Downloads latest UDO
-- Extracts the `UDO/` folder to your project
-- Cleans up temporary files
-
-### Windows (PowerShell)
+**Windows (PowerShell)**
 
 ```powershell
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-Invoke-WebRequest -Uri "https://github.com/carderel/UDO-No-Script-Complete/archive/refs/heads/main.zip" -OutFile "udo.zip"
-Expand-Archive -Path "udo.zip" -DestinationPath "."
-Move-Item -Path "UDO-No-Script-Complete-main\UDO" -Destination ".\"
-Remove-Item -Path "udo.zip", "UDO-No-Script-Complete-main" -Recurse
+git clone https://github.com/carderel/UDO.git my-project
+Set-Location my-project
 ```
 
-**Done!** You now have a `UDO/` folder in your project.
+No `git`? Download the zip instead: `https://github.com/carderel/UDO/archive/refs/heads/main.zip`, unzip it, and rename the extracted folder to your project name.
 
-## Step 2: Start Your LLM (2 minutes)
+### Adding UDO to a project you already have
 
-Open your AI tool and navigate to your project folder:
+Clone to a temporary folder, then copy UDO's root items into your existing project root:
+
+**Mac / Linux**
+
+```bash
+git clone https://github.com/carderel/UDO.git udo-src
+cp -r udo-src/DOCUMENTATION udo-src/TOOLS "udo-src/UDO Framework" "udo-src/UDO Project" "udo-src/User Provided Files" udo-src/README.md udo-src/START_HERE.md udo-src/validate.py udo-src/upgrade.sh udo-src/upgrade.ps1 .
+rm -rf udo-src
+```
+
+**Windows (PowerShell)**
+
+```powershell
+git clone https://github.com/carderel/UDO.git udo-src
+Copy-Item -Recurse -Force "udo-src\DOCUMENTATION","udo-src\TOOLS","udo-src\UDO Framework","udo-src\UDO Project","udo-src\User Provided Files","udo-src\README.md","udo-src\START_HERE.md","udo-src\validate.py","udo-src\upgrade.sh","udo-src\upgrade.ps1" -Destination .
+Remove-Item -Recurse -Force udo-src
+```
+
+**Either way, you now have 5 folders at your project root:** `DOCUMENTATION/`, `TOOLS/`, `UDO Framework/`, `UDO Project/`, `User Provided Files/`.
+
+## Step 2: Start Your LLM
+
+Open your AI CLI from inside the project folder (the one that now contains `UDO Framework/` and `UDO Project/`):
 
 ```bash
 cd /path/to/your/project
-claude .          # Claude Code
-# OR
-cursor .          # Cursor
-# OR
-# Your other LLM's command to open the folder
 ```
 
-**Important:** Your LLM must be run **from within the project folder** (the one containing `UDO/`) for proper context loading.
+Then start your LLM's CLI as you normally would. UDO is LLM-agnostic; it does not depend on any particular flag or startup mode. What matters is that your LLM's working directory is the project folder, so it can see and read the UDO files.
 
-## Step 3: Begin First Session (6 minutes)
+## Step 3: Begin Your First Session
 
 Tell your AI:
 
-```
-Read UDO/START_HERE.md and begin
-```
+> Read 'UDO Framework/START_HERE.md' and begin.
 
 The AI will:
-1. Read the onboarding document
-2. Check the project state
-3. Ask you clarifying questions
-4. Create an orientation report
+1. Read the framework's onboarding document
+2. Check `UDO Project/PROJECT_STATE.json` and recent session logs
+3. Declare whether it can delegate to subagents in this harness
+4. Ask you clarifying questions and give you an orientation report
 5. Ask what you want to work on
 
-**That's it!** You're now in a UDO session.
+That's it. You're now in a UDO session.
 
----
+## Step 4 (optional, recommended for Claude Code): Turn on the Enforcement Hook
 
-## After First Session
+If you're using Claude Code, the repo root `.claude/settings.json` already wires up `UDO Project/.udo/udo_hook.py`. It runs automatically once you start Claude Code from the project folder: no extra install step. The hook injects project state at session start, shows a drift status line on each prompt, and blocks session end if `PROJECT_STATE.json` or today's session log is stale.
 
-Your project now contains:
+This is optional. It only works with Claude Code. Any other LLM CLI can still follow the full protocol; use `python3 validate.py` (see below) to check compliance instead.
+
+## After Your First Session
+
+Your project now looks like this:
 
 ```
 your-project/
-├── UDO/                    # Framework (don't edit directly)
-│   ├── START_HERE.md       # AI reads this at session start
-│   ├── PROJECT_STATE.json  # Current goal and progress
-│   ├── .project-catalog/   # Session logs and decisions
+├── UDO Framework/          # Protocol. Never edit. Replaced wholesale on upgrade.
+│   ├── START_HERE.md       # The AI reads this at session start
+│   ├── ORCHESTRATOR.md
 │   └── [other framework files]
+├── UDO Project/            # Your working context. Upgrades preserve your data here.
+│   ├── PROJECT_STATE.json  # Current goal and progress
+│   ├── TOPICS.md           # Parallel workstreams
+│   ├── .agents/            # Agent personas
+│   ├── .project-catalog/   # Session logs and decisions
+│   └── [other project files]
+├── TOOLS/                  # Installed skills and agents registry
 ├── DOCUMENTATION/          # You are here
-│   ├── README.md
-│   ├── QUICK_START.md      # This file
-│   └── FOLDER_GUIDE.md
-└── [your project files]
+└── User Provided Files/    # External reference material
 ```
 
 ## Next Steps
 
-**For next session:**
-- Start your LLM from the project folder again
-- Tell AI: `Resume` or `Deep resume`
-- AI will load previous context and continue
+**For your next session:**
+- Start your LLM from the project folder again.
+- Tell the AI `Resume` or `Deep resume`.
+- The AI loads previous context and continues.
+
+**To check compliance yourself, anytime, with any LLM:**
+
+```bash
+python3 validate.py
+```
+
+This checks that required files and folders exist, `PROJECT_STATE.json` parses and matches its schema, today's session has a log, and installed agents are in sync. Exit code 0 means pass.
 
 **To understand the structure:**
-- Read [FOLDER_GUIDE.md](FOLDER_GUIDE.md) to learn what each folder does
+- Read [FOLDER_GUIDE.md](FOLDER_GUIDE.md) to learn what each folder does.
 
 **To learn more:**
-- Read [UDO/ORCHESTRATOR.md](../UDO/ORCHESTRATOR.md) for full protocol
-- Read [UDO/HARD_STOPS.md](../UDO/HARD_STOPS.md) to understand constraints
+- Read `UDO Framework/ORCHESTRATOR.md` for the full protocol.
+- Read `UDO Framework/HARD_STOPS.md` to understand the non-negotiable rules.
 
 ## Troubleshooting
 
-**"LLM doesn't see the UDO folder"**
-- Make sure you ran the install command from the correct directory
-- Check that `UDO/` folder exists: `ls -la UDO/` (Mac/Linux) or `dir UDO` (Windows)
+**"My AI doesn't see the UDO folders"**
+- Make sure you started your LLM's CLI from inside the project folder, not a parent or sibling folder.
+- Check that both folders exist: `ls -la "UDO Framework" "UDO Project"` (Mac/Linux) or `dir "UDO Framework"` (Windows).
 
 **"I'm getting permission errors"**
-- Make sure you have write access to the project folder
-- Try running with appropriate permissions
+- Make sure you have write access to the project folder.
 
-**"What if I'm upgrading from an older version?"**
-- See [FOLDER_GUIDE.md](FOLDER_GUIDE.md) under "Upgrading"
+**"How do I upgrade later?"**
+- **Coming from an older version?** If your install does not have `upgrade.py` yet (any UDO v4.x, v2.0, or v2.1, since your install predates it), download the latest script first, then run it. Mac/Linux:
+  ```bash
+  curl -O https://raw.githubusercontent.com/carderel/UDO/main/upgrade.py
+  python3 upgrade.py --dry-run
+  ```
+  Windows (PowerShell):
+  ```powershell
+  Invoke-WebRequest https://raw.githubusercontent.com/carderel/UDO/main/upgrade.py -OutFile upgrade.py
+  py -3 upgrade.py --dry-run
+  ```
+  The script always fetches the newest UDO release from the repo, so downloading the latest `upgrade.py` first is all the updating the updater ever needs.
+- If you already have `upgrade.py`, run `python3 upgrade.py --dry-run` from the project root first. It prints a manifest (what will be added, replaced, transformed, or left alone) without changing anything. Review it, then run `python3 upgrade.py` for real. It shows that same manifest, asks for confirmation (skip with `--yes`), then backs up the whole project to `.udo-backup-<timestamp>/` before touching anything, and finishes by running `validate.py` on the result, failing loudly with the backup path if that check does not pass. Use `--source <path-or-url>` to install from a local checkout or zip instead of the default GitHub release. A legacy single-folder `UDO/` install (v4.x) is carried forward automatically; the old folder is renamed to `UDO-v4-LEGACY-DO-NOT-EDIT/` and kept, never deleted. `upgrade.sh` / `upgrade.ps1` are equivalent wrappers around the same script.
+
+**"Should I turn on the enforcement hook?"**
+- If you're on Claude Code, yes, it's already wired up and costs nothing extra. On other LLM CLIs, use `python3 validate.py` instead; see Step 4 above.
 
 ---
 
-**Ready?** Start your LLM and tell it: `Read UDO/START_HERE.md and begin`
+**Ready?** Start your LLM CLI from the project folder and say: Read 'UDO Framework/START_HERE.md' and begin.

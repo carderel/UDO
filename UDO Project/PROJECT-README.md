@@ -75,7 +75,6 @@ See `../UDO Framework/COMMANDS.md` for available operations:
 - `bu` - Backup (full mid-session save)
 - `h` - Handoff (session end protocol)
 - `r` - Resume (continue from checkpoint)
-- `br` - Bridge request (multi-agent coordination)
 
 ## Important Files & Directories
 
@@ -92,7 +91,7 @@ See `../UDO Framework/COMMANDS.md` for available operations:
 
 For complete specification, see:
 - `../UDO Framework/ORCHESTRATOR.md` - Full system specification
-- `../UDO Framework/HARD_STOPS.md` - Mandatory rules (HS-UDO-001 through HS-UDO-009)
+- `../UDO Framework/HARD_STOPS.md` - Mandatory rules. See that file for the authoritative list (some IDs are retired tombstones).
 - `../UDO Framework/COMMANDS.md` - Available operations
 - `../UDO Framework/README.md` - Framework overview
 

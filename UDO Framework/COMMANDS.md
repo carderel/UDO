@@ -28,15 +28,14 @@
 
 ### What `Backup` Does (in order)
 
-1. **Update `PROJECT_STATE.json`** — current goal, phase, todos, in_progress, completed, blockers, session actions
-2. **Create/update session log** — write or append to `.project-catalog/sessions/` for this session
-3. **Archive session transcript** — append archive marker to `.project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md`
-4. **Create checkpoint** — save progress snapshot to `.checkpoints/`
-5. **Reset prompt counter** — `prompt_counter.count_since_last_state_update` → 0
-6. **Check bridge state** — if bridge active, update `.bridge/bridge-state.json` if needed
-7. **Log decisions** — any undocumented decisions get written to `.project-catalog/decisions/`
-8. **Flush working memory** — anything in conversation that should be in `.memory/working/` gets written
-9. **Confirm** — report: "Backup complete. State updated. Session logged. Checkpoint created."
+1. **Update `PROJECT_STATE.json`**: current goal, phase, todos, in_progress, completed, blockers, session actions
+2. **Create/update session log**: write or append to `.project-catalog/sessions/` for this session
+3. **Archive session transcript**: append archive marker to `.project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md`
+4. **Create checkpoint**: save progress snapshot to `.checkpoints/`
+5. **Reset prompt counter**: `prompt_counter.count_since_last_state_update` → 0
+6. **Log decisions**: any undocumented decisions get written to `.project-catalog/decisions/`
+7. **Flush working memory**: anything in conversation that should be in `.memory/working/` gets written
+8. **Confirm**: report "Backup complete. State updated. Session logged. Checkpoint created."
 
 ## Mode Control
 
@@ -62,6 +61,7 @@
 
 | Command | What It Does |
 |---------|--------------|
+| `Validate` | Run validate.py: artifact/schema/drift check; fix errors before continuing |
 | `Backfill sessions` | Reconstruct missing session logs from conversation history |
 | `Compliance check` | Run self-check, report any gaps in logging/checkpoints/memory/mode |
 | `Catch up logging` | Create any missing logs, checkpoints, decision records |
@@ -91,18 +91,11 @@
 | `Create agent [name]` | Manually create a specialist agent |
 | `Archive agent [name]` | Move agent to archive |
 
-## Bridge (Cross-Agent Communication)
+## Skills
 
 | Command | What It Does |
 |---------|--------------|
-| `Bridge request [description]` | Write structured request for an external agent to `.bridge/bridge-queue.md` |
-| `Check bridge` | Read `bridge-queue.md` for new responses, apply results |
-| `Bridge status` | Report `bridge-state.json` status |
-| `Bridge log` | Show recent `.bridge/session-log.md` entries |
-| `Enable bridge` | Activate bridge, initialize files |
-| `List adapters` | Show available bridge adapters in `.bridge/adapters/` |
-| `Add adapter [platform]` | Set up a new bridge adapter |
-| `Pre-flight [REQ-XXXX]` | Manually run pre-flight complexity audit on a specific request |
+| `Refresh catalog` | Re-fetch the source README and regenerate both `TOOLS/CATALOG.md` and `TOOLS/CATALOG-AGENTS.md` |
 
 ## Memory
 
@@ -145,11 +138,8 @@
 | `cc` | Compliance check |
 | `rc` | RC mode |
 | `st` | Session transcript (verify exists, view current, required before work starts per HS-UDO-013) |
-| `br` | Bridge request |
-| `cb` | Check bridge |
-| `bs` | Bridge status |
+| `v` | Validate |
 | `bu` | Backup |
-| `pf` | Pre-flight |
 
 ---
 

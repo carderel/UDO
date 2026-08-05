@@ -2,7 +2,7 @@
 
 A critical review pass that runs after deliverables are complete but before final handoff to the user. The purpose is to surface gaps, weaknesses, and alternative interpretations that the user should be aware of.
 
-**This is not about being negative—it's about being complete.**
+**This is not about being negative; it's about being complete.**
 
 ---
 
@@ -213,7 +213,7 @@ The Devil's Advocate runs AFTER persona mode creates the output but BEFORE deliv
 
 - **Not a blocker:** It surfaces concerns, it doesn't veto output
 - **Not a rewrite:** It doesn't change the output, it annotates it
-- **Not adversarial:** It's collaborative—helping the user see the full picture
+- **Not adversarial:** it's collaborative, helping the user see the full picture
 - **Not required to find problems:** "No significant concerns" is a valid finding
 
 ---

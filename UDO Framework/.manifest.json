@@ -22,7 +22,6 @@
       "HANDOFF_PROMPT.md"
     ],
     "infrastructure_dirs": [
-      ".bridge",
       ".templates",
       ".takeover",
       ".tools"
