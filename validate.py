@@ -22,6 +22,14 @@ for f in ["PROJECT_STATE.json", "PROJECT_META.json", "CAPABILITIES.json",
           "HARD_STOPS.md", "LESSONS_LEARNED.md"]:
     need(proj / f)
 
+# 1b. Framework payload present (upgrade.py self-verify gate: an upgrade
+# that fails to deliver "UDO Framework/" intact must not pass validation)
+fw = proj.parent / "UDO Framework"
+if need(fw, "dir"):
+    for f in ["VERSION", "ORCHESTRATOR.md", "START_HERE.md",
+              "HARD_STOPS.md", "COMMANDS.md"]:
+        need(fw / f)
+
 # 2. State parses and matches schema basics
 state = {}
 sp = proj / "PROJECT_STATE.json"
