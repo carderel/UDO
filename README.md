@@ -1,4 +1,4 @@
-# UDO v2.0: Universal Dynamic Orchestrator
+# UDO: Universal Dynamic Orchestrator
 
 **Current version: 2.2**
 
@@ -19,12 +19,12 @@ This release introduces architectural separation with `/UDO Framework/` (immutab
 
 ## Quick Start
 
-There is a single source for UDO: `https://github.com/carderel/UDO-v2.0` (clone it, or download the zip). See `DOCUMENTATION/QUICK_START.md` for full install steps for a brand new project versus adding UDO to an existing one, on Mac, Linux, and Windows.
+There is a single source for UDO: `https://github.com/carderel/UDO` (clone it, or download the zip). See `DOCUMENTATION/QUICK_START.md` for full install steps for a brand new project versus adding UDO to an existing one, on Mac, Linux, and Windows.
 
 ### Fastest path, new project
 
 ```bash
-git clone https://github.com/carderel/UDO-v2.0.git my-project
+git clone https://github.com/carderel/UDO.git my-project
 cd my-project
 ```
 
@@ -36,13 +36,13 @@ Then start your LLM CLI from that folder and say: Read 'UDO Framework/START_HERE
 
 Mac/Linux:
 ```bash
-curl -O https://raw.githubusercontent.com/carderel/UDO-v2.0/main/upgrade.py
+curl -O https://raw.githubusercontent.com/carderel/UDO/main/upgrade.py
 python3 upgrade.py --dry-run
 ```
 
 Windows (PowerShell):
 ```powershell
-Invoke-WebRequest https://raw.githubusercontent.com/carderel/UDO-v2.0/main/upgrade.py -OutFile upgrade.py
+Invoke-WebRequest https://raw.githubusercontent.com/carderel/UDO/main/upgrade.py -OutFile upgrade.py
 py -3 upgrade.py --dry-run
 ```
 

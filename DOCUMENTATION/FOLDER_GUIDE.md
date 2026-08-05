@@ -208,13 +208,13 @@ It only runs in Claude Code. If you're on a different LLM CLI, use `python3 vali
 
 Mac/Linux:
 ```bash
-curl -O https://raw.githubusercontent.com/carderel/UDO-v2.0/main/upgrade.py
+curl -O https://raw.githubusercontent.com/carderel/UDO/main/upgrade.py
 python3 upgrade.py --dry-run
 ```
 
 Windows (PowerShell):
 ```powershell
-Invoke-WebRequest https://raw.githubusercontent.com/carderel/UDO-v2.0/main/upgrade.py -OutFile upgrade.py
+Invoke-WebRequest https://raw.githubusercontent.com/carderel/UDO/main/upgrade.py -OutFile upgrade.py
 py -3 upgrade.py --dry-run
 ```
 

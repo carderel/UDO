@@ -4,25 +4,25 @@ Get UDO running in a few minutes.
 
 ## Step 1: Get UDO
 
-There is one source for UDO: `https://github.com/carderel/UDO-v2.0`. Clone it or download the zip. Do not use any other repository; any older guide pointing elsewhere is out of date.
+There is one source for UDO: `https://github.com/carderel/UDO`. Clone it or download the zip. Do not use any other repository; any older guide pointing elsewhere is out of date.
 
 ### Starting a brand new project
 
 **Mac / Linux**
 
 ```bash
-git clone https://github.com/carderel/UDO-v2.0.git my-project
+git clone https://github.com/carderel/UDO.git my-project
 cd my-project
 ```
 
 **Windows (PowerShell)**
 
 ```powershell
-git clone https://github.com/carderel/UDO-v2.0.git my-project
+git clone https://github.com/carderel/UDO.git my-project
 Set-Location my-project
 ```
 
-No `git`? Download the zip instead: `https://github.com/carderel/UDO-v2.0/archive/refs/heads/main.zip`, unzip it, and rename the extracted folder to your project name.
+No `git`? Download the zip instead: `https://github.com/carderel/UDO/archive/refs/heads/main.zip`, unzip it, and rename the extracted folder to your project name.
 
 ### Adding UDO to a project you already have
 
@@ -31,7 +31,7 @@ Clone to a temporary folder, then copy UDO's root items into your existing proje
 **Mac / Linux**
 
 ```bash
-git clone https://github.com/carderel/UDO-v2.0.git udo-src
+git clone https://github.com/carderel/UDO.git udo-src
 cp -r udo-src/DOCUMENTATION udo-src/TOOLS "udo-src/UDO Framework" "udo-src/UDO Project" "udo-src/User Provided Files" udo-src/README.md udo-src/START_HERE.md udo-src/validate.py udo-src/upgrade.sh udo-src/upgrade.ps1 .
 rm -rf udo-src
 ```
@@ -39,7 +39,7 @@ rm -rf udo-src
 **Windows (PowerShell)**
 
 ```powershell
-git clone https://github.com/carderel/UDO-v2.0.git udo-src
+git clone https://github.com/carderel/UDO.git udo-src
 Copy-Item -Recurse -Force "udo-src\DOCUMENTATION","udo-src\TOOLS","udo-src\UDO Framework","udo-src\UDO Project","udo-src\User Provided Files","udo-src\README.md","udo-src\START_HERE.md","udo-src\validate.py","udo-src\upgrade.sh","udo-src\upgrade.ps1" -Destination .
 Remove-Item -Recurse -Force udo-src
 ```
@@ -132,12 +132,12 @@ This checks that required files and folders exist, `PROJECT_STATE.json` parses a
 **"How do I upgrade later?"**
 - **Coming from an older version?** If your install does not have `upgrade.py` yet (any UDO v4.x, v2.0, or v2.1, since your install predates it), download the latest script first, then run it. Mac/Linux:
   ```bash
-  curl -O https://raw.githubusercontent.com/carderel/UDO-v2.0/main/upgrade.py
+  curl -O https://raw.githubusercontent.com/carderel/UDO/main/upgrade.py
   python3 upgrade.py --dry-run
   ```
   Windows (PowerShell):
   ```powershell
-  Invoke-WebRequest https://raw.githubusercontent.com/carderel/UDO-v2.0/main/upgrade.py -OutFile upgrade.py
+  Invoke-WebRequest https://raw.githubusercontent.com/carderel/UDO/main/upgrade.py -OutFile upgrade.py
   py -3 upgrade.py --dry-run
   ```
   The script always fetches the newest UDO release from the repo, so downloading the latest `upgrade.py` first is all the updating the updater ever needs.

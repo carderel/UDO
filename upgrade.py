@@ -36,7 +36,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-DEFAULT_SOURCE_URL = "https://github.com/carderel/UDO-v2.0/archive/refs/heads/main.zip"
+DEFAULT_SOURCE_URL = "https://github.com/carderel/UDO/archive/refs/heads/main.zip"
 
 # ---------------------------------------------------------------------------
 # Constants: lane membership. These lists are the single source of truth for
