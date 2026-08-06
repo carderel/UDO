@@ -96,6 +96,14 @@ Do not proceed until you have:
 
 Complete these orientation steps:
 
+0. **Check for framework updates (non-blocking):** compare the local `UDO Framework/VERSION`
+   against the canonical repo:
+   `curl -fsSL --max-time 5 "https://raw.githubusercontent.com/carderel/UDO/main/UDO%20Framework/VERSION"`
+   - If the remote version is newer, add one line to your orientation report:
+     "Framework update available: local X → latest Y (upgrade is user-gated; run `upgrade.py` from the canonical repo)."
+   - NEVER auto-upgrade and NEVER modify `UDO Framework/` yourself (HS-UDO-014).
+     Upgrading is the user's decision, executed via the upgrade tool.
+   - If the request fails (offline, timeout, no curl): skip silently and continue.
 1. **Check hard stops:** `HARD_STOPS.md` (rules you must NEVER violate)
 2. **Declare your delegation capability (MANDATORY).** Determine whether this harness can spawn subagents. Write the result to CAPABILITIES.json (`delegation` block) and include ONE of these lines in your orientation report:
    - "Delegation: AVAILABLE via [mechanism]. Custom agents sync from .agents/."

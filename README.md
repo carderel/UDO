@@ -1,6 +1,6 @@
 # UDO: Universal Dynamic Orchestrator
 
-**Current version: 2.2.2**
+**Current version: 2.2.4**
 
 **Multi-LLM Safe Session Orchestration Framework**
 
@@ -135,6 +135,7 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 
 | Version | Release | Major Features |
 |---------|---------|---|
+| v2.2.4  | 2026-08-06 | START_HERE orientation step 0: non-blocking framework update check against the canonical repo |
 | v2.2    | 2026-08-04 | Bridge removed, enforcement hooks, TOOLS/ skills and agents registry, documentation rewrite for the real v2 architecture |
 | v2.1    | 2026-03-10 | Session transcripts, conflict detection refinements |
 | v2.0    | 2026-03-10 | Framework/Project separation, multi-LLM safety |
