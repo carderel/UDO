@@ -1,6 +1,6 @@
 # UDO: Universal Dynamic Orchestrator
 
-**Current version: 2.2.6**
+**Current version: 2.2.7**
 
 **Multi-LLM Safe Session Orchestration Framework**
 
@@ -135,6 +135,7 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 
 | Version | Release | Major Features |
 |---------|---------|---|
+| v2.2.7  | 2026-08-09 | Any folder named UDO-anything counts as an install for detection; cleanup handles scaffolds that were journaled into or half-removed by hand |
 | v2.2.6  | 2026-08-09 | Upgrade lane refuses to "upgrade" an unused placeholder scaffold while the real install sits below it; detection regression fixtures |
 | v2.2.5  | 2026-08-07 | Upgrade detection refuses to install fresh over a project whose real UDO install sits in a subfolder |
 | v2.2.4  | 2026-08-06 | START_HERE orientation step 0: non-blocking framework update check against the canonical repo |
@@ -145,6 +146,13 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 The legacy v4.x series (v4.9, v4.10, and earlier) was superseded by the v2.0 rewrite above; it is not compatible with this repository and is not maintained.
 
 ## Changelog
+
+### v2.2.7 (2026-08-09)
+
+- Detection now treats a folder **named** `UDO`-anything as an install even when its contents match none of the known layouts. A partial, renamed or hand-edited install used to be invisible to every content check and got scaffolded straight over. The refusal says the contents were unrecognized rather than guessing at them, and an explicit `--mode` still overrides
+- `cleanup-misinstall.py` handles a scaffold that sessions have been **journaling into**. It refuses by default, since clearing it would discard real session logs, transcripts and decisions, and explains the `--merge-records` option, which copies those records into the real project first and copies the scaffold's PROJECT_STATE.json across whole for a person to read. State is never machine-merged
+- `cleanup-misinstall.py` handles a root somebody has already **half-cleaned by hand**. Deleting `UDO Framework/` and `UDO Project/` leaves ten other things the installer wrote sitting at the root; those are now identified from the backup snapshot and cleared
+- A leftover is only moved when its name is one the installer actually writes AND it is absent from the pre-run backup. A file you created after the bad run is never mistaken for installer output
 
 ### v2.2.6 (2026-08-09)
 

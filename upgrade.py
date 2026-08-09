@@ -402,18 +402,43 @@ def find_nested_installs(target):
             continue
         if name in V22_STRUCTURAL_DIR_NAMES:
             continue
-        if (child / "UDO Framework" / "VERSION").is_file():
-            version = read_version_file(child / "UDO Framework" / "VERSION")
-            found.append((name, f"v2.x install, version {version or 'unreadable'}"))
-        elif (child / "UDO Framework").is_dir():
-            found.append((name, "v2.x install, no readable VERSION file"))
-        elif (child / "UDO" / "ORCHESTRATOR.md").is_file():
-            found.append((name, "v4.x install in a UDO/ subfolder"))
-        else:
-            markers = [m for m in V4_ROOT_MARKERS if (child / m).is_file()]
-            if len(markers) >= 3:
-                found.append((name, f"v4.x install at that folder's root ({len(markers)} markers)"))
+        desc = _describe_child(child)
+        if desc:
+            found.append((name, desc))
     return found
+
+
+def _describe_child(child):
+    """What `child` looks like, or None if it looks like nothing to do with UDO.
+
+    Two ways to qualify. Either the folder's contents identify it (a framework
+    folder, a v4 UDO/ subfolder, enough v4 root markers), or its NAME does.
+    The name test matters because a partial or hand-edited install may match
+    none of the content checks while still obviously being someone's UDO
+    folder: "UDO-v2.0" with a half-finished layout, a copy someone renamed. On
+    a bare name match the contents get described as unrecognized rather than
+    guessed at, and the caller refuses either way. A false positive here costs
+    one refusal the user overrides with an explicit --mode; a false negative
+    costs them a silent mis-install, which is what this whole guard exists to
+    stop."""
+    if (child / "UDO Framework" / "VERSION").is_file():
+        version = read_version_file(child / "UDO Framework" / "VERSION")
+        return f"v2.x install, version {version or 'unreadable'}"
+    if (child / "UDO Framework").is_dir():
+        return "v2.x install, no readable VERSION file"
+    if (child / "UDO" / "ORCHESTRATOR.md").is_file():
+        return "v4.x install in a UDO/ subfolder"
+    markers = [m for m in V4_ROOT_MARKERS if (child / m).is_file()]
+    if len(markers) >= 3:
+        return f"v4.x install at that folder's root ({len(markers)} markers)"
+    if child.name.upper().startswith("UDO"):
+        if markers:
+            return (
+                f"folder named like a UDO install, {len(markers)} v4 marker(s) present, "
+                "too few to identify the layout"
+            )
+        return "folder named like a UDO install, contents unrecognized"
+    return None
 
 
 def _nested_lines(nested):

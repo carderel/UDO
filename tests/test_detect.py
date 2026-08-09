@@ -234,6 +234,27 @@ def run_all(tmp):
         make_v2_install(d / "UDO", version="4.10", state=USED_STATE)
         expect_lane(d, "upgrade", forced="upgrade")
 
+    def t_udo_named_folder_unrecognized_contents():
+        """A folder called UDO-something that matches none of the content
+        checks. The name alone is enough to refuse rather than scaffold over it."""
+        d = case("udo_named")
+        (d / "UDO-v2.0").mkdir()
+        (d / "UDO-v2.0" / "notes.md").write_text("half-finished\n", encoding="utf-8")
+        expect_refusal(d, "UDO-v2.0/", "contents unrecognized")
+
+    def t_udo_named_folder_with_few_markers():
+        d = case("udo_named_markers")
+        make_v4_root_install(d / "UDO backup copy", marker_count=2)
+        expect_refusal(d, "UDO backup copy/", "2 v4 marker(s)")
+
+    def t_non_udo_folder_ignored():
+        """The name test must not fire on ordinary project folders."""
+        d = case("non_udo")
+        (d / "src").mkdir()
+        (d / "src" / "main.py").write_text("print(1)\n", encoding="utf-8")
+        (d / "invoices").mkdir()
+        expect_lane(d, "fresh")
+
     def t_remnant_scaffold_over_nested():
         """A scaffold someone has already half-removed by hand: the framework
         folder is still there, UDO Project/ is gone. Nothing in it proves it is
@@ -258,6 +279,9 @@ def run_all(tmp):
         t_used_install_over_nested_still_upgrades,
         t_placeholder_with_session_log_upgrades,
         t_forced_upgrade_overrides_placeholder_guard,
+        t_udo_named_folder_unrecognized_contents,
+        t_udo_named_folder_with_few_markers,
+        t_non_udo_folder_ignored,
         t_remnant_scaffold_over_nested,
         t_structural_dirs_not_nested,
     ]:

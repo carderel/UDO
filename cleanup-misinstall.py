@@ -55,6 +55,16 @@ V22_STRUCTURAL_DIR_NAMES = {"UDO Framework", "UDO Project"}
 EXCLUDE_DIR_NAMES = {".git", ".superpowers", "node_modules"}
 BACKUP_PREFIX = ".udo-backup-"
 QUARANTINE_PREFIX = ".udo-misinstall-"
+# Everything a fresh install writes at the target root. A leftover is only ever
+# quarantined if its name is on this list AND it is absent from the pre-run
+# backup: both conditions, so a file the user created after the bad run is
+# never mistaken for installer output just because it is new.
+INSTALLER_ITEMS = {
+    "DOCUMENTATION", "TOOLS", "UDO Framework", "UDO Project", "User Provided Files",
+    "validate.py", "cleanup-misinstall.py", ".claude", "README.md", "START_HERE.md",
+    "LICENSE", ".gitignore", "upgrade.sh", "upgrade.ps1", "upgrade.py",
+}
+
 V4_ROOT_MARKERS = [
     "ORCHESTRATOR.md",
     "HARD_STOPS.md",
@@ -80,7 +90,12 @@ def read_version(path):
 
 
 def describe_install(path):
-    """Return a human description if `path` looks like a UDO install, else None."""
+    """Return a human description if `path` looks like a UDO install, else None.
+
+    Contents identify it first. Failing that, the folder's NAME does: a folder
+    called UDO-anything is somebody's UDO folder even when its layout matches
+    none of the known shapes, and this script must not step around it silently.
+    Kept deliberately in step with _describe_child() in upgrade.py."""
     if not path.is_dir():
         return None
     fw_version = path / "UDO Framework" / "VERSION"
@@ -93,6 +108,11 @@ def describe_install(path):
     markers = [m for m in V4_ROOT_MARKERS if (path / m).is_file()]
     if len(markers) >= 3:
         return f"v4.x install at that folder's root ({len(markers)} markers)"
+    if path.name.upper().startswith("UDO"):
+        if markers:
+            return (f"folder named like a UDO install, {len(markers)} v4 marker(s), "
+                    "too few to identify the layout")
+        return "folder named like a UDO install, contents unrecognized"
     return None
 
 
@@ -112,20 +132,61 @@ def find_nested_installs(target):
     return found
 
 
+RECORD_SUBDIRS = ["sessions", "history", "decisions", "handoffs", "checkpoints"]
+RECORD_SKIP_NAMES = {"README.md", ".gitkeep"}
+
+
+def record_files(install):
+    """Every session log, transcript, decision, handoff and checkpoint under
+    `install`, as (subdir, Path) pairs. Boilerplate the distribution ships is
+    skipped so an untouched scaffold reports nothing."""
+    catalog = catalog_dir(install)
+    if catalog is None:
+        return []
+    out = []
+    for sub in RECORD_SUBDIRS:
+        d = catalog / sub
+        if not d.is_dir():
+            continue
+        for entry in sorted(d.iterdir()):
+            if entry.name.startswith(".") or entry.name in RECORD_SKIP_NAMES:
+                continue
+            out.append((sub, entry))
+    return out
+
+
+def catalog_dir(install):
+    """`.project-catalog` for either layout, or None."""
+    for candidate in (install / "UDO Project" / ".project-catalog",
+                      install / ".project-catalog"):
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
 def classify_install(target):
     """Decide what the install at `target` is, as (kind, detail):
 
-      "used"        something proves a person has worked in it. Never touched.
-      "placeholder" still carries the state it shipped with. Safe to move.
+      "used"        a real project. project_id was changed from the shipped
+                    placeholder, which only happens when someone sets the
+                    project up deliberately. Never touched, no override.
+      "placeholder" still carries the state it shipped with, and nothing has
+                    been written into it. Safe to move as-is.
+      "journaled"   never initialised as a project (project_id is still the
+                    shipped one) but records have accumulated in it anyway:
+                    somebody has been working in the wrong tree. Those records
+                    are real and must be carried across before anything moves.
       "remnant"     no PROJECT_STATE.json at all, e.g. a scaffold someone has
-                    already half-removed by hand. Nothing there belongs to
-                    anyone, and session logs still have to come up empty.
+                    already half-removed by hand.
 
-    Only "used" stops the cleanup. The distinction between the other two exists
-    so the report can say which one it saw rather than inventing a reason."""
+    project_id is the discriminator that matters. A scaffold that a session
+    journaled into still has the shipped id, because nothing in the protocol
+    rewrites it until the project is actually set up. That is what separates
+    "wrong tree, rescue the records" from "this is somebody's project, hands
+    off"."""
     state_path = target / "UDO Project" / "PROJECT_STATE.json"
     kind = "placeholder"
-    detail = "carries the state it shipped with"
+    detail = "carries the state it shipped with, nothing written into it"
 
     if not state_path.is_file():
         kind = "remnant"
@@ -140,20 +201,29 @@ def classify_install(target):
             return "used", "PROJECT_STATE.json has an unrecognized shape"
         if state.get("project_id") != PLACEHOLDER_PROJECT_ID:
             return "used", f"project_id is {state.get('project_id')!r}, not the shipped placeholder"
-        if state.get("goal"):
-            return "used", "a goal has been written"
-        if state.get("todos"):
-            return "used", f"{len(state['todos'])} todo(s) recorded"
-        if state.get("session_count"):
-            return "used", f"session_count is {state['session_count']}"
-        if state.get("prompt_count"):
-            return "used", f"prompt_count is {state['prompt_count']}"
 
-    sessions = target / "UDO Project" / ".project-catalog" / "sessions"
-    if sessions.is_dir():
-        logs = [e.name for e in sessions.iterdir() if not e.name.startswith(".")]
-        if logs:
-            return "used", f"{len(logs)} session log(s) exist ({', '.join(sorted(logs)[:3])})"
+        written = []
+        if state.get("goal"):
+            written.append("a goal")
+        if state.get("todos"):
+            written.append(f"{len(state['todos'])} todo(s)")
+        if state.get("session_count"):
+            written.append(f"session_count {state['session_count']}")
+        if state.get("prompt_count"):
+            written.append(f"prompt_count {state['prompt_count']}")
+        if written:
+            kind, detail = "journaled", "state carries " + ", ".join(written)
+
+    records = record_files(target)
+    if records:
+        counts = {}
+        for sub, _path in records:
+            counts[sub] = counts.get(sub, 0) + 1
+        summary = ", ".join(f"{n} {sub}" for sub, n in sorted(counts.items()))
+        if kind == "journaled":
+            detail += f"; {summary}"
+        else:
+            kind, detail = "journaled", summary
     return kind, detail
 
 
@@ -178,6 +248,8 @@ class Plan:
         self.quarantine = quarantine
         self.kind = "placeholder"
         self.detail = ""
+        self.merge_items = []        # (subdir, source Path, destination Path)
+        self.merge_state = None      # (source Path, destination Path)
         self.quarantine_items = []   # (name, why)
         self.hook_action = None      # (description, old_command_path, new_command_path)
         self.quarantine_settings = False
@@ -201,24 +273,27 @@ def hook_paths_in(settings_obj):
     return out
 
 
-def build_plan(target, real_name, stamp):
+def build_plan(target, real_name, stamp, merge_records=False):
     if not target.is_dir():
         raise CleanupError(f"{target} is not a directory.")
 
     scaffold_version = read_version(target / "UDO Framework" / "VERSION")
-    if not (target / "UDO Framework").is_dir():
-        raise CleanupError(
-            f"No UDO install at {target} itself (no 'UDO Framework/' folder), so there "
-            "is no scaffold here to clean up. If the real install is in a subfolder and "
-            "you simply want to upgrade it, point upgrade.py at that subfolder instead."
-        )
 
-    kind, detail = classify_install(target)
+    if (target / "UDO Framework").is_dir():
+        kind, detail = classify_install(target)
+    else:
+        # No scaffold install here, but that does not mean the root is clean.
+        # Somebody may have deleted "UDO Framework/" and "UDO Project/" by hand
+        # and left the other ten things the installer wrote (DOCUMENTATION/,
+        # TOOLS/, START_HERE.md, validate.py ...) sitting at the root. The
+        # backup snapshot still identifies them, so the cleanup can still run.
+        kind = "debris"
+        detail = "no scaffold install left here; identifying leftovers from the backup"
     if kind == "used":
         raise CleanupError(
-            f"Refusing to touch {target}: the UDO install here has been used ({detail}). "
-            "This script only removes a scaffold nobody has worked in. If this really "
-            "is one you want gone, move it by hand so the decision is yours."
+            f"Refusing to touch {target}: the UDO install here is a real project "
+            f"({detail}). This script only clears a scaffold nobody set up deliberately. "
+            "If this really is one you want gone, move it by hand so the decision is yours."
         )
 
     nested = find_nested_installs(target)
@@ -247,11 +322,40 @@ def build_plan(target, real_name, stamp):
         )
 
     real = target / real_name
+
+    if kind == "journaled":
+        if not merge_records:
+            raise CleanupError(
+                f"The install at {target} was never set up as a project (project_id is "
+                f"still the shipped placeholder), but work has accumulated in it: "
+                f"{detail}.\n\nSomebody has been journaling into the wrong tree. Those "
+                "records are real, and clearing the scaffold without them would throw "
+                "them away.\n\nRe-run with --merge-records to copy them into "
+                f"{real_name}/ first, then clear the scaffold:\n"
+                f'    python3 cleanup-misinstall.py "{target}" --real "{real_name}" '
+                "--merge-records\n\nAdd --apply once the printed plan looks right."
+            )
+        if catalog_dir(real) is None:
+            raise CleanupError(
+                f"--merge-records was asked for, but {real_name}/ has no .project-catalog "
+                "to merge into, so there is nowhere for the records to go. Refusing rather "
+                "than inventing a folder layout in someone's project."
+            )
+
     backup = newest_backup(target)
     plan = Plan(target, real, scaffold_version, backup, target / f"{QUARANTINE_PREFIX}{stamp}")
     plan.kind, plan.detail = kind, detail
+    if kind == "journaled" and merge_records:
+        plan_record_merge(plan)
 
     if backup is None:
+        if kind == "debris":
+            raise CleanupError(
+                f"{target} has no UDO install of its own and no .udo-backup-* folder, so "
+                "there is no evidence here of a mis-install and nothing to identify "
+                f"leftovers against. {real_name}/ looks like the real project; if you just "
+                f'want to upgrade it, run: python3 upgrade.py "{real_name}" --dry-run'
+            )
         plan.warnings.append(
             "No .udo-backup-* folder from the bad run was found, so there is no snapshot "
             "of what the root looked like before it. Only the two scaffold folders are "
@@ -279,7 +383,13 @@ def build_plan(target, real_name, stamp):
             continue
 
         if name not in before:
-            plan.quarantine_items.append((name, "added by the run, absent from the backup"))
+            if name in INSTALLER_ITEMS:
+                plan.quarantine_items.append((name, "installed by the run, absent from the backup"))
+            else:
+                plan.warnings.append(
+                    f"{name} appeared after the run but is not something the installer "
+                    "writes, so it is yours and is being left alone."
+                )
             continue
 
         # Present before the run, so it is the user's, not the scaffold's.
@@ -301,6 +411,30 @@ def build_plan(target, real_name, stamp):
 
     plan.hook_action = plan_hook_repair(plan, before)
     return plan
+
+
+def plan_record_merge(plan):
+    """Copy, never move, every record out of the scaffold into the real
+    project's catalog. Copying means the originals still go to quarantine, so
+    until you delete that folder the records exist in two places rather than
+    none. Name collisions are suffixed, never overwritten: a file already in
+    the real project always wins its own name."""
+    dest_catalog = catalog_dir(plan.real)
+    for sub, src in record_files(plan.target):
+        dst_dir = dest_catalog / sub
+        dst = dst_dir / src.name
+        if dst.exists():
+            dst = dst_dir / f"{src.stem}-from-root-scaffold{src.suffix}"
+        plan.merge_items.append((sub, src, dst))
+
+    # The scaffold's own state is not merged: the schemas and the semantics
+    # differ, and a machine-merged goal or todo list is the kind of thing
+    # nobody notices is wrong. It is copied in whole, next to the records, for
+    # a person to read.
+    state = plan.target / "UDO Project" / "PROJECT_STATE.json"
+    if state.is_file():
+        stamp = datetime.date.today().isoformat()
+        plan.merge_state = (state, dest_catalog / f"{stamp}-root-scaffold-PROJECT_STATE.json")
 
 
 def files_match(a, b):
@@ -380,12 +514,26 @@ def print_plan(plan, applying):
     print()
     print("=" * 72)
     print(f"Target:          {plan.target}")
-    print(f"Scaffold:        UDO Framework/ version {plan.scaffold_version or '?'} "
-          f"[{plan.kind}: {plan.detail}]")
+    if plan.kind == "debris":
+        print(f"Scaffold:        none left at the root [{plan.detail}]")
+    else:
+        print(f"Scaffold:        UDO Framework/ version {plan.scaffold_version or '?'} "
+              f"[{plan.kind}: {plan.detail}]")
     print(f"Real project:    {plan.real.name}/  ({describe_install(plan.real)})")
     print(f"Pre-run backup:  {plan.backup.name if plan.backup else '(none found)'}")
     print(f"Quarantine:      {plan.quarantine.name}/")
     print("=" * 72)
+
+    if plan.merge_items or plan.merge_state:
+        print(f"\nCOPY INTO {plan.real.name}/ BEFORE CLEARING ({len(plan.merge_items)}"
+              f"{' + state' if plan.merge_state else ''}):")
+        for sub, src, dst in plan.merge_items:
+            renamed = "  (renamed, name already taken)" if dst.name != src.name else ""
+            print(f"  {sub}/{src.name}  ->  {dst.parent.name}/{dst.name}{renamed}")
+        if plan.merge_state:
+            src, dst = plan.merge_state
+            print(f"  UDO Project/PROJECT_STATE.json  ->  {dst.parent.name}/{dst.name}"
+                  "  (copied whole, for a person to read; not merged)")
 
     print(f"\nMOVE TO QUARANTINE ({len(plan.quarantine_items)}):")
     for name, why in plan.quarantine_items or []:
@@ -419,6 +567,21 @@ def print_plan(plan, applying):
 
 
 def apply_plan(plan):
+    # Merge first. If anything here fails, nothing has been moved yet and the
+    # scaffold is still intact for a second attempt.
+    for _sub, src, dst in plan.merge_items:
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if src.is_dir():
+            shutil.copytree(str(src), str(dst))
+        else:
+            shutil.copy2(str(src), str(dst))
+        print(f"  merged       {dst.parent.name}/{dst.name}")
+    if plan.merge_state:
+        src, dst = plan.merge_state
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(str(src), str(dst))
+        print(f"  merged       {dst.parent.name}/{dst.name}")
+
     plan.quarantine.mkdir(parents=True, exist_ok=False)
     moved = []
 
@@ -489,6 +652,17 @@ def write_record(plan, moved):
         f"- Moved {len(plan.quarantine_items)} scaffold item(s) into `{plan.quarantine.name}/`",
         "- Left every root item that predates the run exactly where it was",
     ]
+    if plan.merge_items or plan.merge_state:
+        lines.append(
+            f"- Carried {len(plan.merge_items)} record(s) written into the scaffold across "
+            f"into this project's `.project-catalog/` first"
+        )
+        if plan.merge_state:
+            lines.append(
+                f"- Copied the scaffold's PROJECT_STATE.json to "
+                f"`{plan.merge_state[1].name}` whole. It was NOT merged: read it and "
+                "decide what belongs in this project's goal and todos"
+            )
     if plan.quarantine_settings:
         lines.append(
             "- Quarantined `.claude/settings.json` as well: its hooks pointed into the "
@@ -531,6 +705,10 @@ def build_arg_parser():
     p.add_argument("--real", metavar="SUBFOLDER", default=None,
                    help="Name of the subfolder holding the real install. Required when "
                         "more than one subfolder is a UDO install.")
+    p.add_argument("--merge-records", action="store_true",
+                   help="When sessions have written into the scaffold, copy those records "
+                        "into the real project before clearing it. Required to proceed in "
+                        "that case; the script refuses rather than discard them silently.")
     p.add_argument("--apply", action="store_true",
                    help="Actually make the changes. Without this, prints the plan and exits.")
     return p
@@ -542,7 +720,7 @@ def main(argv=None):
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
     try:
-        plan = build_plan(target, args.real, stamp)
+        plan = build_plan(target, args.real, stamp, merge_records=args.merge_records)
     except CleanupError as exc:
         print(f"\nERROR: {exc}\n", file=sys.stderr)
         return 1
@@ -551,7 +729,8 @@ def main(argv=None):
     if not args.apply:
         return 0
 
-    if not plan.quarantine_items and not plan.hook_action and not plan.quarantine_settings:
+    if (not plan.quarantine_items and not plan.hook_action
+            and not plan.quarantine_settings and not plan.merge_items):
         print("Nothing to do.\n")
         return 0
 
