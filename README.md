@@ -1,6 +1,6 @@
 # UDO: Universal Dynamic Orchestrator
 
-**Current version: 2.2.5**
+**Current version: 2.2.6**
 
 **Multi-LLM Safe Session Orchestration Framework**
 
@@ -135,6 +135,7 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 
 | Version | Release | Major Features |
 |---------|---------|---|
+| v2.2.6  | 2026-08-09 | Upgrade lane refuses to "upgrade" an unused placeholder scaffold while the real install sits below it; detection regression fixtures |
 | v2.2.5  | 2026-08-07 | Upgrade detection refuses to install fresh over a project whose real UDO install sits in a subfolder |
 | v2.2.4  | 2026-08-06 | START_HERE orientation step 0: non-blocking framework update check against the canonical repo |
 | v2.2    | 2026-08-04 | Bridge removed, enforcement hooks, TOOLS/ skills and agents registry, documentation rewrite for the real v2 architecture |
@@ -144,6 +145,14 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 The legacy v4.x series (v4.9, v4.10, and earlier) was superseded by the v2.0 rewrite above; it is not compatible with this repository and is not maintained.
 
 ## Changelog
+
+### v2.2.6 (2026-08-09)
+
+- The v2.2.5 guard was preventive only. Once a mis-install had already happened, the placeholder scaffold presented a valid `UDO Framework/VERSION`, so detection took the upgrade lane on its first check and never reached the nested scan. The run upgraded the empty scaffold, reported success, and left the real project un-upgraded one folder down
+- The upgrade lane now refuses when the install at the target has never been used (shipped `project_id`, no goal, no todos, no counted sessions or prompts, no session logs) and a real install sits directly below it. A used install is never affected, and a placeholder with nothing underneath it upgrades normally. `--mode upgrade` overrides
+- `cleanup-misinstall.py`: repairs projects where this already happened. Quarantines the scaffold rather than deleting it, and repoints `.claude/` enforcement hooks at the real install. Dry run by default
+- Fixed: the nested-install scan reported a v2.x install's own `UDO Framework/` folder as a nested v4.x install
+- Added `tests/test_detect.py`, 17 fixtures pinning every detection lane and all three regressions in this class
 
 ### v2.2.5 (2026-08-07)
 

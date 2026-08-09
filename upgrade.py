@@ -49,6 +49,17 @@ DEFAULT_SOURCE_URL = "https://github.com/carderel/UDO/archive/refs/heads/main.zi
 EXCLUDE_DIR_NAMES = {".git", ".superpowers", "node_modules"}
 EXCLUDE_DIR_PREFIXES = (".udo-backup",)
 
+# The two directories that ARE a v2.x install at a given level. A scan looking
+# for installs one level down must skip them: they are the current level's own
+# structure, not a nested project. "UDO Framework" in particular holds
+# ORCHESTRATOR.md, HARD_STOPS.md and friends, so a marker count would otherwise
+# report a v2.x install's own framework folder as a nested v4.x install.
+V22_STRUCTURAL_DIR_NAMES = {"UDO Framework", "UDO Project"}
+
+# project_id as shipped in UDO Project/PROJECT_STATE.json. Still being present
+# means nobody has run a session against this install yet.
+PLACEHOLDER_PROJECT_ID = "placeholder-project-id"
+
 # Fresh install: everything at the source root that becomes the new
 # installation. Order matters only for readability of the printed manifest.
 FRESH_TOP_LEVEL = [
@@ -58,6 +69,7 @@ FRESH_TOP_LEVEL = [
     "UDO Project",
     "User Provided Files",
     "validate.py",
+    "cleanup-misinstall.py",
     ".claude",
     "README.md",
     "START_HERE.md",
@@ -76,6 +88,7 @@ FRAMEWORK_LANE_REPLACE = ["UDO Framework"]
 ROOT_LANE_REPLACE = [
     "DOCUMENTATION",
     "validate.py",
+    "cleanup-misinstall.py",
     "README.md",
     "START_HERE.md",
     "TOOLS/README.md",
@@ -387,6 +400,8 @@ def find_nested_installs(target):
             continue
         if name.startswith(EXCLUDE_DIR_PREFIXES):
             continue
+        if name in V22_STRUCTURAL_DIR_NAMES:
+            continue
         if (child / "UDO Framework" / "VERSION").is_file():
             version = read_version_file(child / "UDO Framework" / "VERSION")
             found.append((name, f"v2.x install, version {version or 'unreadable'}"))
@@ -405,11 +420,20 @@ def _nested_lines(nested):
     return "\n".join(f"  - {name}/  ({desc})" for name, desc in nested)
 
 
-def _nested_remedy(target, nested):
+def _nested_remedy(target, nested, override_line=None):
     """The two ways forward out of a nested-install standoff. The suggested
     path is written relative to the invoking shell's cwd when the target sits
     under it (the normal case: the user cd'd into the project and ran the
-    one-liner), and absolute otherwise, so the command can be pasted as-is."""
+    one-liner), and absolute otherwise, so the command can be pasted as-is.
+
+    override_line names the explicit --mode that overrides this refusal, which
+    differs by caller: the fresh fall-through is overridden with --mode fresh,
+    the placeholder-over-nested guard with --mode upgrade."""
+    if override_line is None:
+        override_line = (
+            "If you genuinely want a NEW, separate install at this location "
+            "alongside the folder(s) above, re-run with an explicit --mode fresh."
+        )
     first = target / nested[0][0]
     try:
         suggested = first.resolve().relative_to(Path.cwd().resolve())
@@ -418,8 +442,74 @@ def _nested_remedy(target, nested):
     return (
         "To upgrade the real install, point this script at it directly:\n"
         + f'    python3 upgrade.py "{suggested}" --dry-run\n'
-        + "If you genuinely want a NEW, separate install at this location "
-        + "alongside the folder(s) above, re-run with an explicit --mode fresh."
+        + override_line
+    )
+
+
+def _is_untouched_placeholder(target):
+    """True when the install at `target` still carries the state it shipped
+    with and has never run a session: same project_id as the distribution, no
+    goal, no todos, no counted sessions or prompts, no session logs. Any one of
+    those being false means somebody has used this install, so it is real work
+    and must be upgraded normally."""
+    state_path = target / "UDO Project" / "PROJECT_STATE.json"
+    if state_path.is_file():
+        try:
+            obj = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return False
+        state = obj.get("project_state", obj) if isinstance(obj, dict) else None
+        if not isinstance(state, dict):
+            return False
+        if state.get("project_id") != PLACEHOLDER_PROJECT_ID:
+            return False
+        if state.get("goal") or state.get("todos"):
+            return False
+        if state.get("session_count") or state.get("prompt_count"):
+            return False
+    # No state file at all is the remnant of a half-removed scaffold. Nothing
+    # there proves the install belongs to anyone, so it stays a candidate and
+    # the session-log check below still has to clear it.
+    sessions = target / "UDO Project" / ".project-catalog" / "sessions"
+    if sessions.is_dir():
+        for entry in sessions.iterdir():
+            if not entry.name.startswith("."):
+                return False
+    return True
+
+
+def _guard_placeholder_over_nested(target, version):
+    """v2.2.5 stopped the fresh lane from dropping a scaffold beside a real
+    install. It cannot help a project where that already happened. The scaffold
+    presents a valid UDO Framework/VERSION, so detect() returns on its very
+    first check and the nested scan is never reached; the run then upgrades the
+    empty placeholder, reports success, and leaves the real project
+    un-upgraded one level down. Same silent failure, one release later.
+
+    So the upgrade lane has to ask the question too, but only in the one case
+    where the answer is unambiguous: the install here has never been used AND a
+    real install sits directly below it. A used install is never touched by
+    this guard, and neither is a placeholder with nothing underneath it (that
+    is just a fresh install someone has not started yet)."""
+    if not _is_untouched_placeholder(target):
+        return
+    nested = find_nested_installs(target)
+    if not nested:
+        return
+    raise UpgradeError(
+        f"The UDO install at {target} (version {version}) has never been used: it still "
+        "carries the placeholder state it shipped with, with no goal, no todos and no "
+        "session logs. And these subfolder(s) are themselves UDO installs:\n"
+        + _nested_lines(nested)
+        + "\n\nThis is what a mis-install looks like: an earlier run put a scaffold here "
+        "beside the real project instead of upgrading it. Upgrading the scaffold would "
+        "report success and change nothing that matters, leaving the real work behind.\n\n"
+        + _nested_remedy(
+            target,
+            nested,
+            "If you really do mean to upgrade the empty install at this location, "
+            "re-run with an explicit --mode upgrade.",
+        )
     )
 
 
@@ -444,6 +534,7 @@ def detect(target, source_version, forced_mode):
                 "Refusing to guess the installed version. Re-run with an explicit "
                 "--mode fresh|upgrade|migrate|migrate-root|refresh to proceed."
             )
+        _guard_placeholder_over_nested(target, version)
         if version == source_version:
             return DetectResult(mode="upgrade", current_version=version, up_to_date=True)
         return DetectResult(mode="upgrade", current_version=version, up_to_date=False)
