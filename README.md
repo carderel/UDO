@@ -1,6 +1,6 @@
 # UDO: Universal Dynamic Orchestrator
 
-**Current version: 2.2.7**
+**Current version: 2.2.8**
 
 **Multi-LLM Safe Session Orchestration Framework**
 
@@ -135,6 +135,7 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 
 | Version | Release | Major Features |
 |---------|---------|---|
+| v2.2.8  | 2026-08-09 | Legacy migration folder is no longer mistaken for a nested install |
 | v2.2.7  | 2026-08-09 | Any folder named UDO-anything counts as an install for detection; cleanup handles scaffolds that were journaled into or half-removed by hand |
 | v2.2.6  | 2026-08-09 | Upgrade lane refuses to "upgrade" an unused placeholder scaffold while the real install sits below it; detection regression fixtures |
 | v2.2.5  | 2026-08-07 | Upgrade detection refuses to install fresh over a project whose real UDO install sits in a subfolder |
@@ -146,6 +147,10 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 The legacy v4.x series (v4.9, v4.10, and earlier) was superseded by the v2.0 rewrite above; it is not compatible with this repository and is not maintained.
 
 ## Changelog
+
+### v2.2.8 (2026-08-09)
+
+- `UDO-v4-LEGACY-DO-NOT-EDIT/`, the folder a completed migrate or migrate-root run leaves behind, starts with `UDO` and so was caught by the v2.2.7 name test. It was reported as a nested install and could be suggested as an upgrade target, which is exactly backwards: it is already-migrated content the run itself marked do-not-edit. Now skipped by name, in both `upgrade.py` and `cleanup-misinstall.py`
 
 ### v2.2.7 (2026-08-09)
 

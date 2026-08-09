@@ -247,6 +247,20 @@ def run_all(tmp):
         make_v4_root_install(d / "UDO backup copy", marker_count=2)
         expect_refusal(d, "UDO backup copy/", "2 v4 marker(s)")
 
+    def t_legacy_folder_is_not_an_install():
+        """A completed migrate-root run leaves UDO-v4-LEGACY-DO-NOT-EDIT/ behind.
+        Its name starts with UDO, but it is already-migrated content and must
+        never be reported as an install to point the upgrader at."""
+        d = case("legacy_only")
+        legacy = d / U.LEGACY_DIR_NAME
+        legacy.mkdir()
+        for name in U.V4_ROOT_MARKERS:
+            (legacy / name).write_text("# migrated away\n", encoding="utf-8")
+        assert U.find_nested_installs(d) == [], (
+            f"legacy folder reported as a nested install: {U.find_nested_installs(d)}"
+        )
+        expect_lane(d, "fresh")
+
     def t_non_udo_folder_ignored():
         """The name test must not fire on ordinary project folders."""
         d = case("non_udo")
@@ -282,6 +296,7 @@ def run_all(tmp):
         t_udo_named_folder_unrecognized_contents,
         t_udo_named_folder_with_few_markers,
         t_non_udo_folder_ignored,
+        t_legacy_folder_is_not_an_install,
         t_remnant_scaffold_over_nested,
         t_structural_dirs_not_nested,
     ]:

@@ -402,6 +402,13 @@ def find_nested_installs(target):
             continue
         if name in V22_STRUCTURAL_DIR_NAMES:
             continue
+        # The legacy folder a completed migrate/migrate-root run leaves behind
+        # is v4 protocol files by definition, and its name starts with "UDO",
+        # so the name test below would flag it. It is not an install anyone
+        # should be pointed at: it is already-migrated content, marked
+        # DO-NOT-EDIT by the run that created it.
+        if name == LEGACY_DIR_NAME or name.startswith(LEGACY_DIR_NAME + "-"):
+            continue
         desc = _describe_child(child)
         if desc:
             found.append((name, desc))

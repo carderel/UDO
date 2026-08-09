@@ -54,6 +54,10 @@ PLACEHOLDER_PROJECT_ID = "placeholder-project-id"
 V22_STRUCTURAL_DIR_NAMES = {"UDO Framework", "UDO Project"}
 EXCLUDE_DIR_NAMES = {".git", ".superpowers", "node_modules"}
 BACKUP_PREFIX = ".udo-backup-"
+# What a completed migrate/migrate-root run renames the old v4 tree to. Its
+# name starts with "UDO", so the name test in describe_install() would flag it
+# as an install; it is already-migrated content and never an upgrade target.
+LEGACY_DIR_NAME = "UDO-v4-LEGACY-DO-NOT-EDIT"
 QUARANTINE_PREFIX = ".udo-misinstall-"
 # Everything a fresh install writes at the target root. A leftover is only ever
 # quarantined if its name is on this list AND it is absent from the pre-run
@@ -125,6 +129,8 @@ def find_nested_installs(target):
         if name.startswith(".") or name in EXCLUDE_DIR_NAMES:
             continue
         if name in V22_STRUCTURAL_DIR_NAMES:
+            continue
+        if name == LEGACY_DIR_NAME or name.startswith(LEGACY_DIR_NAME + "-"):
             continue
         desc = describe_install(child)
         if desc:
