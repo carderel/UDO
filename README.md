@@ -1,6 +1,6 @@
 # UDO: Universal Dynamic Orchestrator
 
-**Current version: 2.2.4**
+**Current version: 2.2.5**
 
 **Multi-LLM Safe Session Orchestration Framework**
 
@@ -135,6 +135,7 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 
 | Version | Release | Major Features |
 |---------|---------|---|
+| v2.2.5  | 2026-08-07 | Upgrade detection refuses to install fresh over a project whose real UDO install sits in a subfolder |
 | v2.2.4  | 2026-08-06 | START_HERE orientation step 0: non-blocking framework update check against the canonical repo |
 | v2.2    | 2026-08-04 | Bridge removed, enforcement hooks, TOOLS/ skills and agents registry, documentation rewrite for the real v2 architecture |
 | v2.1    | 2026-03-10 | Session transcripts, conflict detection refinements |
@@ -143,6 +144,16 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 The legacy v4.x series (v4.9, v4.10, and earlier) was superseded by the v2.0 rewrite above; it is not compatible with this repository and is not maintained.
 
 ## Changelog
+
+### v2.2.5 (2026-08-07)
+
+- Auto-detection now scans one level below the target. A project whose real UDO install lives in a subfolder (`UDO-v2.0/`, `UDO/`, or similar) no longer falls through to the fresh lane, which used to install an empty placeholder project beside the real one and leave the actual work un-upgraded
+- The refusal names the subfolder, its detected version, and the exact command to upgrade it directly; `--mode fresh` still overrides when a second, separate install really is what you want
+- A `.udo-backup-*` folder left behind by an earlier run does not trip the new guard
+
+### v2.2.4 (2026-08-06)
+
+- START_HERE orientation step 0: a non-blocking framework update check against the canonical repo, so a session reports version drift instead of silently running stale
 
 ### v2.2.3 (2026-08-05)
 
@@ -180,9 +191,3 @@ Found a bug or want to improve the framework? Please open an issue or submit a p
 ## License
 
 MIT License - See LICENSE file for details.
-
----
-
-**Last Updated:** 2026-03-10
-**Status:** PRODUCTION READY
-**Build:** Bulletproof (100% red-team validated)

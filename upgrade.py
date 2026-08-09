@@ -359,6 +359,70 @@ class DetectResult:
         self.up_to_date = up_to_date
 
 
+def find_nested_installs(target):
+    """Scan one level below `target` for folders that are themselves UDO
+    installs, and return them as a sorted list of (folder name, description).
+
+    Field finding (2026-08-07): a project root can hold a complete UDO install
+    in a subfolder ("UDO-v2.0/", "UDO/", "UDO Project Framework Build/") while
+    the root itself carries no framework and no v4 root markers. Every check
+    in detect() looks only at `target`, so that shape falls straight through
+    to the fresh lane, which installs a placeholder scaffold beside the real
+    project. Nothing is destroyed (the real install is in a folder the fresh
+    manifest never touches), but the next session resumes into an empty
+    scaffold and reads the project as brand new. Detection must not guess here.
+
+    Only immediate children are scanned. Dot-directories and the standard
+    exclusions are skipped, which is what keeps a .udo-backup-* from an
+    earlier run (whose contents legitimately include an install) from
+    reporting itself as a nested install forever after."""
+    if not target.is_dir():
+        return []
+    found = []
+    for child in sorted(target.iterdir()):
+        name = child.name
+        if not child.is_dir():
+            continue
+        if name.startswith(".") or name in EXCLUDE_DIR_NAMES:
+            continue
+        if name.startswith(EXCLUDE_DIR_PREFIXES):
+            continue
+        if (child / "UDO Framework" / "VERSION").is_file():
+            version = read_version_file(child / "UDO Framework" / "VERSION")
+            found.append((name, f"v2.x install, version {version or 'unreadable'}"))
+        elif (child / "UDO Framework").is_dir():
+            found.append((name, "v2.x install, no readable VERSION file"))
+        elif (child / "UDO" / "ORCHESTRATOR.md").is_file():
+            found.append((name, "v4.x install in a UDO/ subfolder"))
+        else:
+            markers = [m for m in V4_ROOT_MARKERS if (child / m).is_file()]
+            if len(markers) >= 3:
+                found.append((name, f"v4.x install at that folder's root ({len(markers)} markers)"))
+    return found
+
+
+def _nested_lines(nested):
+    return "\n".join(f"  - {name}/  ({desc})" for name, desc in nested)
+
+
+def _nested_remedy(target, nested):
+    """The two ways forward out of a nested-install standoff. The suggested
+    path is written relative to the invoking shell's cwd when the target sits
+    under it (the normal case: the user cd'd into the project and ran the
+    one-liner), and absolute otherwise, so the command can be pasted as-is."""
+    first = target / nested[0][0]
+    try:
+        suggested = first.resolve().relative_to(Path.cwd().resolve())
+    except (ValueError, OSError):
+        suggested = first
+    return (
+        "To upgrade the real install, point this script at it directly:\n"
+        + f'    python3 upgrade.py "{suggested}" --dry-run\n'
+        + "If you genuinely want a NEW, separate install at this location "
+        + "alongside the folder(s) above, re-run with an explicit --mode fresh."
+    )
+
+
 def detect(target, source_version, forced_mode):
     """Determine which lane to run. Auto-detection only runs when forced_mode
     is None; an explicit --mode always wins and skips the empty/unparseable
@@ -410,6 +474,13 @@ def detect(target, source_version, forced_mode):
     found_markers = sorted(m for m in V4_ROOT_MARKERS if (target / m).is_file())
     if len(found_markers) >= 3:
         return DetectResult(mode="migrate-root", current_version=None, up_to_date=False)
+
+    # Computed before the ambiguity guard below so that a target which is both
+    # partially marked AND has a nested install reports the more actionable
+    # fact. It is only decisive at the fresh fall-through: the confident lanes
+    # above (upgrade, migrate, migrate-root) keep their existing behaviour.
+    nested = find_nested_installs(target)
+
     if found_markers:
         raise UpgradeError(
             f"Found {len(found_markers)} v4.x root marker file(s) at {target} "
@@ -418,6 +489,28 @@ def detect(target, source_version, forced_mode):
             "a fresh install here could silently overwrite files that belong to a partial "
             "v4.x install. Re-run with an explicit --mode fresh|upgrade|migrate|migrate-root"
             "|refresh to proceed."
+            + (
+                "\n\nNote: this folder also contains what looks like a complete UDO install "
+                "one level down:\n"
+                + _nested_lines(nested)
+                + "\n\n"
+                + _nested_remedy(target, nested)
+                if nested
+                else ""
+            )
+        )
+
+    if nested:
+        raise UpgradeError(
+            f"No UDO install found at {target} itself, but "
+            f"{'a subfolder is already one' if len(nested) == 1 else 'these subfolders already are'}"
+            ":\n"
+            + _nested_lines(nested)
+            + "\n\nRefusing to guess. Installing fresh here would put an empty placeholder "
+            "project beside your real one. Nothing would be destroyed, but the real work "
+            "would stay un-upgraded and the next session would resume into the empty "
+            "scaffold and read the project as brand new.\n\n"
+            + _nested_remedy(target, nested)
         )
 
     return DetectResult(mode="fresh", current_version=None, up_to_date=False)
