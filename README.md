@@ -1,6 +1,6 @@
 # UDO: Universal Dynamic Orchestrator
 
-**Current version: 2.2.8**
+**Current version: 2.3.0**
 
 **Multi-LLM Safe Session Orchestration Framework**
 
@@ -135,6 +135,7 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 
 | Version | Release | Major Features |
 |---------|---------|---|
+| v2.3.0  | 2026-08-10 | Handoff bundles: export an install to a verifiable bundle, and restore a target from a backup |
 | v2.2.8  | 2026-08-09 | Legacy migration folder is no longer mistaken for a nested install |
 | v2.2.7  | 2026-08-09 | Any folder named UDO-anything counts as an install for detection; cleanup handles scaffolds that were journaled into or half-removed by hand |
 | v2.2.6  | 2026-08-09 | Upgrade lane refuses to "upgrade" an unused placeholder scaffold while the real install sits below it; detection regression fixtures |
@@ -147,6 +148,20 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 The legacy v4.x series (v4.9, v4.10, and earlier) was superseded by the v2.0 rewrite above; it is not compatible with this repository and is not maintained.
 
 ## Changelog
+
+### v2.3.0 (2026-08-10)
+
+Phase A of the handoff bundle. Neither command in this release can destroy anything: export is read-only by invariant, restore only recovers.
+
+- `--export` writes a handoff bundle: normalized state, every session log, transcript, decision, handoff and checkpoint, project files, and a manifest listing **every file the exporter saw** with a sha256 and a disposition of classified, unclassified or excluded with a reason. Completeness is checkable against the source rather than against the bundle's own contents
+- `--raw` copies the whole tree with no classification at all. It consults neither detection nor the name table, so it works on a layout nobody has seen before. Where export cannot resolve an install it names the ambiguity and points here instead of dead-ending
+- Anything the exporter cannot place goes to `UNCLASSIFIED/` with its original path and is listed in `NOTES.md` for a session to describe. Unrecognized no longer means skipped
+- The bundle is written outside the project by default, so the read-only invariant is literally true and is tested by checksumming the entire source tree before and after
+- Windows-hostile paths (reserved device names, trailing dots, case-insensitive collisions) are made portable on the way in, with every rename recorded in the manifest
+- `--restore BACKUP_DIR` puts a target back from any `.udo-backup-*` this tool wrote, moving what is currently there into a quarantine folder first. Failure paths now end at a command rather than a directory path
+- `tests/test_export.py`, 15 fixtures. Rehearsed against four real installs covering every layout in the field
+
+Import (`--import-handoff`) is Phase B, deliberately not in this release. It is the only part that can destroy a project, and it will be built after real bundles from every layout have been inspected by hand.
 
 ### v2.2.8 (2026-08-09)
 

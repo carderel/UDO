@@ -24,6 +24,7 @@ its own self-verification step, per contract.
 
 import argparse
 import copy
+import hashlib
 import datetime
 import json
 import re
@@ -1970,6 +1971,598 @@ def run_validate(target):
 # main
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Handoff bundle: export (v2.3 Phase A)
+#
+# Why this exists: every lane above picks what to do by inferring a layout from
+# the outside, and a layout nobody has encountered yet matches nothing. That
+# property produced four field defects in six days (2.2.2, 2.2.5, 2.2.6,
+# 2.2.7). Export inverts the direction: the install describes itself, once,
+# into a format the importer can verify instead of guess at.
+#
+# This does NOT eliminate name-based recognition; classification below is still
+# a table. What changes is the failure mode. An unrecognized file lands in
+# UNCLASSIFIED/, is listed in the manifest, and is named on screen, instead of
+# being silently skipped. And --raw needs no recognition at all.
+#
+# Spec: .outputs/2026-08-10-v2.3-handoff-bundle-spec.md
+# ---------------------------------------------------------------------------
+
+BUNDLE_FORMAT = 1
+BUNDLE_SUFFIX = "-udo-handoff"
+
+# Record classes, in the order they are reported. These are the things whose
+# loss would actually hurt: the project's history.
+RECORD_CLASSES = ["sessions", "history", "decisions", "handoffs", "checkpoints"]
+
+# Where a source subpath lands in the bundle, per layout family. Longest source
+# prefix wins, so "UDO Project/.project-catalog/sessions" beats "UDO Project".
+# A value of None means "excluded": the file is inventoried with a reason but
+# not copied, because the importer reinstalls it from the current distribution.
+_V2_MAP = [
+    ("UDO Project/.project-catalog/sessions", "records/sessions"),
+    ("UDO Project/.project-catalog/history", "records/history"),
+    ("UDO Project/.project-catalog/decisions", "records/decisions"),
+    ("UDO Project/.project-catalog/handoffs", "records/handoffs"),
+    ("UDO Project/.project-catalog/checkpoints", "records/checkpoints"),
+    ("UDO Project/.checkpoints", "records/checkpoints"),
+    ("UDO Project/.agents", "project/agents"),
+    ("UDO Project/.rules", "project/rules"),
+    ("UDO Project/.memory", "project/memory"),
+    ("UDO Project/.outputs", "project/outputs"),
+    ("UDO Project/.inputs", "project/inputs"),
+    ("UDO Project/LESSONS_LEARNED.md", "project/LESSONS_LEARNED.md"),
+    ("UDO Project/CAPABILITIES.json", "project/CAPABILITIES.json"),
+    ("UDO Project/PROJECT_META.json", "project/PROJECT_META.json"),
+    ("UDO Project/TOPICS.md", "project/TOPICS.md"),
+    ("UDO Project/HARD_STOPS.md", "project/HARD_STOPS.md"),
+    ("UDO Project/NON_GOALS.md", "project/NON_GOALS.md"),
+    ("UDO Project/CLAUDE.md", "project/CLAUDE.md"),
+    ("UDO Project/.claude", "project/claude"),
+    # The enforcement hook is carried, not excluded: installs customize it.
+    # Market Researcher's was hand-patched to read both state schemas, and
+    # reinstalling the stock copy over that would quietly undo the fix.
+    ("UDO Project/.udo", "project/udo-hook"),
+    ("UDO Project/.takeover", "project/takeover"),
+    ("UDO Project/.tools", "project/tools"),
+    ("UDO Project/.evidence", "project/evidence"),
+    ("UDO Project/User Uploads", "project/user-uploads"),
+    ("UDO Project/.project-catalog/backups", "project/state-backups"),
+    ("UDO Project/.project-catalog/communications", "records/handoffs"),
+    ("User Provided Files", "project/user-provided-files"),
+    ("TOOLS/skills", "project/tools-skills"),
+    ("TOOLS/SKILLS_INDEX.md", "project/SKILLS_INDEX.md"),
+    ("UDO Framework", None),
+    ("DOCUMENTATION", None),
+    ("TOOLS/CATALOG.md", None),
+    ("TOOLS/CATALOG-AGENTS.md", None),
+    ("TOOLS/README.md", None),
+    ("UDO Project/.templates", None),
+    ("UDO Project/.manifest.json", None),
+    ("UDO Project/PROJECT-README.md", None),
+    (".claude", "project/claude"),
+    ("README.md", None),
+    ("START_HERE.md", None),
+    ("LICENSE", None),
+    (".gitignore", None),
+    ("upgrade.py", None),
+    ("upgrade.sh", None),
+    ("upgrade.ps1", None),
+    ("validate.py", None),
+    ("validate-upgrade.sh", None),
+    ("cleanup-misinstall.py", None),
+    ("UDO Project/.project-catalog/README.md", None),
+    ("UDO Project/.project-catalog/STATE_SCHEMA.md", None),
+    (LEGACY_DIR_NAME, None),
+]
+
+_V4_MAP = [
+    (".project-catalog/sessions", "records/sessions"),
+    (".project-catalog/history", "records/history"),
+    (".project-catalog/decisions", "records/decisions"),
+    (".project-catalog/handoffs", "records/handoffs"),
+    (".project-catalog/communications", "records/handoffs"),
+    (".checkpoints", "records/checkpoints"),
+    (".agents", "project/agents"),
+    (".rules", "project/rules"),
+    (".memory", "project/memory"),
+    (".outputs", "project/outputs"),
+    (".inputs", "project/inputs"),
+    ("LESSONS_LEARNED.md", "project/LESSONS_LEARNED.md"),
+    ("CAPABILITIES.json", "project/CAPABILITIES.json"),
+    ("PROJECT_META.json", "project/PROJECT_META.json"),
+    ("NON_GOALS.md", "project/NON_GOALS.md"),
+    ("CLAUDE.md", "project/CLAUDE.md"),
+    (".claude", "project/claude"),
+    (".takeover", "project/takeover"),
+    (".tools", "project/tools"),
+    (".bridge", None),
+    (".templates", None),
+    (LEGACY_DIR_NAME, None),
+]
+
+# v4 framework documents the current distribution supersedes. Inventoried with
+# a reason, never copied: reinstalling them from the bundle would reinstate the
+# old protocol.
+_V4_SUPERSEDED = {
+    "ORCHESTRATOR.md", "HARD_STOPS.md", "COMMANDS.md", "REASONING_CONTRACT.md",
+    "START_HERE.md", "README.md", "AUDIENCE_ANTICIPATION.md", "DEVILS_ADVOCATE.md",
+    "EVIDENCE_PROTOCOL.md", "HANDOFF_PROMPT.md", "OVERSIGHT_DASHBOARD.md",
+    "TEACH_BACK_PROTOCOL.md", "VERSION", "PRE-FLIGHT-AUDIT.md", "BROWSER-LADDER.md",
+}
+
+STATE_RELPATHS = {"UDO Project/PROJECT_STATE.json", "PROJECT_STATE.json"}
+
+# Excluded for reasons other than "the distribution reinstalls it". Saying the
+# wrong reason in a manifest is worse than saying none: whoever reads it later
+# is trusting it to explain why their file is not in the bundle.
+EXCLUDE_REASONS = {
+    LEGACY_DIR_NAME: "already-migrated content from an earlier migration, left where it is",
+    ".bridge": "bridge module, removed in v2.2",
+}
+
+# Names Windows refuses regardless of extension. Already bit this codebase once
+# (the v4.7 robocopy fix), and UNCLASSIFIED/ preserves source paths verbatim,
+# which is exactly where it bites again.
+_WIN_RESERVED = {"CON", "PRN", "AUX", "NUL"} | {f"COM{i}" for i in range(1, 10)} | {
+    f"LPT{i}" for i in range(1, 10)}
+_WIN_ILLEGAL = '<>:"|?*'
+
+
+class ExportError(UpgradeError):
+    pass
+
+
+def _sha256_file(path):
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _sanitize_component(name):
+    """Return (safe_name, changed). Applied per path component, not to the
+    whole path, so separators survive."""
+    original = name
+    stem = name.split(".")[0].upper()
+    if stem in _WIN_RESERVED:
+        name = "_" + name
+    name = "".join("_" if ch in _WIN_ILLEGAL else ch for ch in name)
+    name = name.rstrip(". ")
+    if not name:
+        name = "_"
+    return name, name != original
+
+
+def _sanitize_relpath(relpath, taken):
+    """Make a source-relative path safe to write on any platform, and unique
+    against case-insensitive collisions. Returns (safe_relpath, renamed)."""
+    parts, renamed = [], False
+    for part in Path(relpath).parts:
+        safe, changed = _sanitize_component(part)
+        renamed = renamed or changed
+        parts.append(safe)
+    candidate = "/".join(parts)
+    if candidate.lower() in taken:
+        base, dot, ext = candidate.rpartition(".")
+        n = 2
+        while True:
+            trial = f"{base}-{n}.{ext}" if dot else f"{candidate}-{n}"
+            if trial.lower() not in taken:
+                candidate, renamed = trial, True
+                break
+            n += 1
+    taken.add(candidate.lower())
+    return candidate, renamed
+
+
+def _bundle_default_path(target):
+    """Outside the project, deliberately. Most installs in the field sit at the
+    project root, where "beside the install" and "inside the install" are the
+    same directory, and an export that writes into the tree it is reading
+    cannot honestly claim to be read-only."""
+    return target.parent / f"{target.name}{BUNDLE_SUFFIX}"
+
+
+def resolve_export_install(target, install_root, layout, raw):
+    """Decide what is being exported, without ever dead-ending.
+
+    Order: explicit --install-root, explicit --layout, detection, then raw.
+    Where the old code refused on ambiguity, this names the ambiguity and
+    points at --raw, which consults neither detection nor the name table."""
+    if raw:
+        root = target / install_root if install_root else target
+        if not root.is_dir():
+            raise ExportError(f"{root} is not a directory.")
+        return root, "raw", "none", None
+
+    root = target / install_root if install_root else target
+    if install_root and not root.is_dir():
+        raise ExportError(f"--install-root {install_root!r} is not a directory under {target}.")
+
+    if layout:
+        return root, layout, "explicit", read_version_file(root / "UDO Framework" / "VERSION")
+
+    try:
+        result = detect(root, "0", None)
+    except UpgradeError as exc:
+        raise ExportError(
+            f"{exc}\n\n"
+            "Export does not need this resolved. Re-run with --raw to copy the whole "
+            "tree with no classification at all:\n"
+            f'    python3 upgrade.py --export "{target}" --raw\n'
+            "Everything lands in UNCLASSIFIED/ and is listed in NOTES.md for a session "
+            "to describe. Nothing is lost and nothing is guessed."
+        ) from exc
+
+    if result.mode in ("upgrade", "refresh"):
+        return root, "v2x", "detected", result.current_version
+    if result.mode == "migrate":
+        # A v4-udo install keeps everything under UDO/, so the install root is
+        # that subfolder. _V4_MAP paths are relative to the install root, not
+        # to the project folder that contains it.
+        return root / "UDO", "v4-udo", "detected", None
+    if result.mode == "migrate-root":
+        return root, "v4-root", "detected", None
+    raise ExportError(
+        f"No UDO install found at {root} to export (detection says: {result.mode}).\n"
+        "If there is one here in a shape detection does not know, re-run with --raw."
+    )
+
+
+def _owned_top_level(layout):
+    """Top-level names the UDO install owns, for layouts that share a root with
+    the user's own work.
+
+    v2.x and v4-root installs sit at a project root alongside whatever else
+    lives there: Container Site carries an Astro app, node_modules, src/ and a
+    few hundred images. Sweeping all of that into UNCLASSIFIED/ would be both
+    wrong and useless, since UNCLASSIFIED means "inside the install and
+    unrecognized", not "anywhere in the folder". Anything outside this set is
+    the user's, and is inventoried as excluded rather than copied.
+
+    v4-udo and raw have no such problem: their install root IS the install, so
+    everything under it belongs."""
+    if layout == "v2x":
+        owned = {Path(prefix).parts[0] for prefix, _ in _V2_MAP}
+    elif layout == "v4-root":
+        owned = {Path(prefix).parts[0] for prefix, _ in _V4_MAP} | _V4_SUPERSEDED
+    else:
+        return None
+    owned |= {Path(p).parts[0] for p in STATE_RELPATHS}
+    owned.add(LEGACY_DIR_NAME)
+    return owned
+
+
+def _layout_map(layout):
+    if layout == "v2x":
+        return _V2_MAP
+    if layout in ("v4-udo", "v4-root"):
+        return _V4_MAP
+    return []
+
+
+def classify_relpath(relpath, layout):
+    """(disposition, bundle_path, reason). Longest matching prefix wins."""
+    if layout == "raw":
+        return "unclassified", None, None
+    if relpath in STATE_RELPATHS:
+        return "state", None, None
+
+    best = None
+    for prefix, dest in _layout_map(layout):
+        if relpath == prefix or relpath.startswith(prefix + "/"):
+            if best is None or len(prefix) > len(best[0]):
+                best = (prefix, dest)
+    if best is not None:
+        prefix, dest = best
+        if dest is None:
+            return "excluded", None, EXCLUDE_REASONS.get(
+                prefix, f"reinstalled from the current distribution ({prefix})")
+        tail = relpath[len(prefix):].lstrip("/")
+        return "classified", f"{dest}/{tail}" if tail else dest, None
+
+    if layout in ("v4-udo", "v4-root") and relpath in _V4_SUPERSEDED:
+        return "excluded", None, "v4 framework document superseded by the current distribution"
+
+    owned = _owned_top_level(layout)
+    if owned is not None and Path(relpath).parts[0] not in owned:
+        return "excluded", None, "your own file, not a UDO artifact"
+
+    return "unclassified", None, None
+
+
+def _export_walk(root, bundle_path):
+    """Every file under root, as (relpath, Path), with the standard exclusions
+    reported rather than skipped silently."""
+    out = []
+    for path in sorted(root.rglob("*")):
+        if path.is_dir() or path.is_symlink():
+            continue
+        try:
+            rel = path.relative_to(root).as_posix()
+        except ValueError:
+            continue
+        parts = Path(rel).parts
+        excluded_by = None
+        if parts[-1] in (".gitkeep", ".DS_Store"):
+            # Placeholder and OS cruft. Inventoried, never carried: they are
+            # noise in UNCLASSIFIED/ and the fresh install recreates .gitkeep.
+            excluded_by = f"boilerplate: {parts[-1]}"
+        for part in parts[:-1] or parts:
+            if excluded_by:
+                break
+            if part in EXCLUDE_DIR_NAMES:
+                excluded_by = f"standard exclusion: {part}"
+                break
+            if part.startswith(EXCLUDE_DIR_PREFIXES):
+                excluded_by = f"standard exclusion: {part}"
+                break
+            if part.endswith(BUNDLE_SUFFIX):
+                excluded_by = "an existing handoff bundle"
+                break
+        if bundle_path is not None:
+            try:
+                path.relative_to(bundle_path)
+                excluded_by = "inside the bundle being written"
+            except ValueError:
+                pass
+        out.append((rel, path, excluded_by))
+    return out
+
+
+def _normalize_state_for_bundle(root, layout, source):
+    """(state_obj, unmapped_obj). Reuses the mapper the migrate lane already
+    relies on, so v4 state carries forward exactly as it does today."""
+    for rel in ("UDO Project/PROJECT_STATE.json", "PROJECT_STATE.json"):
+        path = root / rel
+        if path.is_file():
+            break
+    else:
+        return None, {"note": "no PROJECT_STATE.json found in the source install"}
+
+    obj = load_json(path)
+    if obj is None:
+        return None, {"note": f"{rel} could not be parsed; copied verbatim instead"}
+
+    source_state = None
+    if source is not None:
+        source_state = load_json(source / "UDO Project" / "PROJECT_STATE.json")
+
+    if layout in ("v4-udo", "v4-root"):
+        state, unmapped = map_v4_state_to_v22(obj, source_state or {})
+        return state, unmapped
+    if isinstance(obj, dict) and "project_state" not in obj:
+        # v2.0/v2.1 kept state flat; v2.2 nests it. Same shape change the
+        # upgrade lane performs, done here as a standalone step so the bundle
+        # always carries current-schema state regardless of source version.
+        return {"project_state": obj}, {"note": "v2.x flat state wrapped for the current schema"}
+    return obj, {}
+
+
+def _write_notes(bundle, unclassified, layout, source_path):
+    lines = [
+        "# Handoff bundle notes",
+        "",
+        f"Exported from `{source_path}` (layout: {layout}).",
+        "",
+    ]
+    if not unclassified:
+        lines += ["Everything in this install was classified. Nothing needs describing.", ""]
+    else:
+        lines += [
+            f"{len(unclassified)} item(s) could not be classified. They are copied verbatim "
+            "under `UNCLASSIFIED/` with their original paths, and nothing has been lost.",
+            "",
+            "Describe each one below so whoever imports this bundle knows what it is and "
+            "where it belongs. Import refuses to run while this file is still untouched.",
+            "",
+        ]
+        for rel in unclassified:
+            lines += [f"## {rel}", "", "What it is:", "", "Where it belongs:", ""]
+    bundle.joinpath("NOTES.md").write_text("\n".join(lines), encoding="utf-8")
+    return _sha256_file(bundle / "NOTES.md")
+
+
+def export_bundle(target, bundle_path=None, install_root=None, layout=None, raw=False):
+    root, resolved_layout, layout_source, version = resolve_export_install(
+        target, install_root, layout, raw)
+
+    bundle = Path(bundle_path).expanduser().resolve() if bundle_path else _bundle_default_path(target)
+    if bundle.exists() and any(bundle.iterdir()):
+        stamped = bundle.parent / f"{bundle.name}-{datetime.datetime.now():%Y%m%d-%H%M%S}"
+        raise ExportError(
+            f"{bundle} already exists and is not empty. Refusing to write over an existing "
+            f"bundle.\nUse --bundle \"{stamped}\" if you want a second one."
+        )
+
+    entries = _export_walk(root, bundle if _is_within(bundle, root) else None)
+    state, unmapped = (None, {}) if resolved_layout == "raw" else _normalize_state_for_bundle(
+        root, resolved_layout, None)
+
+    bundle.mkdir(parents=True, exist_ok=True)
+    inventory, counts, unclassified, taken = [], {c: 0 for c in RECORD_CLASSES}, [], set()
+    counts["unclassified"] = 0
+
+    for rel, path, excluded_by in entries:
+        if excluded_by:
+            inventory.append({"path": rel, "disposition": "excluded", "reason": excluded_by})
+            continue
+
+        disposition, dest, reason = classify_relpath(rel, resolved_layout)
+        if disposition == "state" and resolved_layout != "raw":
+            inventory.append({
+                "path": rel, "sha256": _sha256_file(path), "bytes": path.stat().st_size,
+                "disposition": "excluded",
+                "reason": "normalized into state.json"})
+            continue
+        if disposition == "excluded":
+            inventory.append({"path": rel, "sha256": _sha256_file(path),
+                              "bytes": path.stat().st_size,
+                              "disposition": "excluded", "reason": reason})
+            continue
+
+        if disposition == "unclassified":
+            safe, renamed = _sanitize_relpath(rel, taken)
+            dest = f"UNCLASSIFIED/{safe}"
+            unclassified.append(rel)
+            counts["unclassified"] += 1
+        else:
+            for cls in RECORD_CLASSES:
+                if dest.startswith(f"records/{cls}"):
+                    counts[cls] += 1
+                    break
+            renamed = False
+
+        out = bundle / dest
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(str(path), str(out))
+        entry = {"path": rel, "sha256": _sha256_file(path), "bytes": path.stat().st_size,
+                 "disposition": disposition, "bundle_path": dest}
+        if renamed:
+            entry["renamed_from"] = rel
+            entry["renamed_reason"] = "path not portable, or a case-insensitive collision"
+        inventory.append(entry)
+
+    if state is not None:
+        write_json(bundle / "state.json", state)
+    if unmapped:
+        write_json(bundle / "unmapped.json", unmapped)
+    notes_sha = _write_notes(bundle, unclassified, resolved_layout, root)
+
+    manifest = {
+        "bundle_format": BUNDLE_FORMAT,
+        "tool_version": read_source_version(Path(__file__).parent) or "2.3",
+        "exported_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "mode": "raw" if resolved_layout == "raw" else "classified",
+        "source": {"path": str(root), "layout": resolved_layout,
+                   "layout_source": layout_source, "version": version,
+                   "install_root": install_root or "."},
+        "counts": counts,
+        "notes_sha256": notes_sha,
+        "inventory": inventory,
+    }
+    write_json(bundle / "manifest.json", manifest)
+
+    bad = [e["bundle_path"] for e in inventory
+           if e.get("bundle_path") and _sha256_file(bundle / e["bundle_path"]) != e["sha256"]]
+    if bad:
+        raise ExportError("Bundle verification failed for: " + ", ".join(bad[:5]))
+
+    return bundle, manifest, unclassified
+
+
+def _is_within(child, parent):
+    try:
+        child.relative_to(parent)
+        return True
+    except ValueError:
+        return False
+
+
+def print_export_report(bundle, manifest, unclassified, target):
+    src = manifest["source"]
+    print()
+    print(f"Exported {src['layout']} install at {src['path']}")
+    if src["layout_source"] == "none":
+        print("  mode: raw. Nothing was classified; everything is under UNCLASSIFIED/.")
+    print()
+    for cls in RECORD_CLASSES:
+        n = manifest["counts"].get(cls, 0)
+        if n:
+            print(f"  {cls:<12} {n}")
+    excluded = sum(1 for e in manifest["inventory"] if e["disposition"] == "excluded")
+    print(f"  {'excluded':<12} {excluded}  (reinstalled from the distribution, or standard exclusions)")
+    print()
+    if unclassified:
+        print(f"Could not classify ({len(unclassified)}):")
+        for rel in unclassified[:20]:
+            print(f"  {rel}")
+        if len(unclassified) > 20:
+            print(f"  ... and {len(unclassified) - 20} more")
+        print()
+        print(f"  Copied verbatim to UNCLASSIFIED/. Describe them in {bundle}/NOTES.md")
+        print()
+    active = _active_session_files(Path(src["path"]))
+    if active:
+        print("Warning: this project looks like it has a session running right now")
+        for path, mins in active[:3]:
+            print(f"  {path} modified {mins} minute(s) ago")
+        print("  A bundle captured mid-session may be missing that session's records.")
+        print()
+    print(f"Bundle: {bundle}")
+    print(f"  {len(manifest['inventory'])} file(s) inventoried, checksums verified")
+
+
+def _active_session_files(root, minutes=30):
+    """Files that suggest a session is writing to this project right now.
+    Multiple sessions demonstrably run in these projects at the same time."""
+    now = datetime.datetime.now().timestamp()
+    hits = []
+    for rel in ("UDO Project/.project-catalog/history", "UDO Project/.project-catalog/sessions",
+                ".project-catalog/history", ".project-catalog/sessions",
+                "UDO Project/.udo/hook-state.json"):
+        p = root / rel
+        candidates = [p] if p.is_file() else (sorted(p.iterdir()) if p.is_dir() else [])
+        for c in candidates:
+            if not c.is_file() or c.name in (".gitkeep", ".DS_Store"):
+                continue
+            age = (now - c.stat().st_mtime) / 60
+            if age < minutes:
+                hits.append((c.relative_to(root).as_posix(), int(age)))
+    return sorted(hits, key=lambda h: h[1])
+
+
+# ---------------------------------------------------------------------------
+# Restore (v2.3 Phase A)
+# ---------------------------------------------------------------------------
+
+def restore_backup(backup_dir, target, assume_yes=False):
+    """Put a target back to a backup this tool wrote.
+
+    Every failure path in this script ends by naming a backup directory. Until
+    now that was where the help stopped, leaving the owner to reason about a
+    full-tree copy by hand at the moment they are least inclined to."""
+    backup_dir = Path(backup_dir).expanduser().resolve()
+    target = Path(target).expanduser().resolve()
+    if not backup_dir.is_dir():
+        raise UpgradeError(f"{backup_dir} is not a directory.")
+    if not backup_dir.name.startswith(".udo-backup-"):
+        raise UpgradeError(
+            f"{backup_dir.name} does not look like a backup this tool wrote (expected a "
+            "name starting with '.udo-backup-'). Refusing to restore from it."
+        )
+    if _is_within(backup_dir, target) is False and backup_dir.parent != target:
+        print(f"Note: {backup_dir} is not inside {target}.")
+
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    quarantine = target / f".udo-pre-restore-{stamp}"
+    incoming = sorted(p.name for p in backup_dir.iterdir())
+
+    print(f"\nRestore {backup_dir}\n     to {target}\n")
+    print(f"  {len(incoming)} top-level item(s) will be restored")
+    print(f"  anything currently at the target with those names moves to {quarantine.name}/")
+    print("  nothing is deleted\n")
+    if not assume_yes and not confirm():
+        print("Aborted.")
+        return 1
+
+    quarantine.mkdir(parents=True, exist_ok=False)
+    for name in incoming:
+        current = target / name
+        if current.exists():
+            shutil.move(str(current), str(quarantine / name))
+        src = backup_dir / name
+        if src.is_dir():
+            shutil.copytree(str(src), str(target / name))
+        else:
+            shutil.copy2(str(src), str(target / name))
+        print(f"  restored  {name}")
+    print(f"\nDone. Replaced items are in {quarantine}")
+    return 0
+
+
 def build_arg_parser():
     parser = argparse.ArgumentParser(
         prog="upgrade.py",
@@ -1980,6 +2573,24 @@ def build_arg_parser():
     parser.add_argument("--yes", action="store_true", help="Do not prompt for confirmation")
     parser.add_argument("--source", default=None, help="Local directory or URL to a zip, used instead of the default GitHub release")
     parser.add_argument("--mode", choices=["fresh", "upgrade", "migrate", "migrate-root", "refresh"], default=None, help="Force a mode instead of auto-detecting")
+
+    handoff = parser.add_argument_group("handoff bundle")
+    handoff.add_argument("--export", action="store_true",
+                         help="Export this install to a handoff bundle instead of upgrading. "
+                              "Reads the install and writes nothing inside it.")
+    handoff.add_argument("--raw", action="store_true",
+                         help="With --export: copy the whole tree with no classification at "
+                              "all. Needs no detection and works on any shape.")
+    handoff.add_argument("--install-root", default=None, metavar="SUB",
+                         help="With --export: the subfolder holding the install, when it is "
+                              "not the target itself.")
+    handoff.add_argument("--layout", choices=["v2x", "v4-udo", "v4-root"], default=None,
+                         help="With --export: state the layout instead of detecting it.")
+    handoff.add_argument("--bundle", default=None, metavar="PATH",
+                         help="With --export: where to write the bundle. Defaults to "
+                              "../<project>-udo-handoff, deliberately outside the project.")
+    handoff.add_argument("--restore", default=None, metavar="BACKUP_DIR",
+                         help="Restore a target from a .udo-backup-* directory this tool wrote.")
     return parser
 
 
@@ -2019,6 +2630,24 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     target = Path(args.target_dir).expanduser().resolve()
+
+    if args.restore:
+        try:
+            return restore_backup(args.restore, target, assume_yes=args.yes)
+        except UpgradeError as exc:
+            print(f"\nERROR: {exc}\n", file=sys.stderr)
+            return 1
+
+    if args.export:
+        try:
+            bundle, manifest, unclassified = export_bundle(
+                target, bundle_path=args.bundle, install_root=args.install_root,
+                layout=args.layout, raw=args.raw)
+        except UpgradeError as exc:
+            print(f"\nERROR: {exc}\n", file=sys.stderr)
+            return 1
+        print_export_report(bundle, manifest, unclassified, target)
+        return 0
 
     cleanup_dir = None
     backup_dir = None
