@@ -1,6 +1,6 @@
 # UDO: Universal Dynamic Orchestrator
 
-**Current version: 2.3.2**
+**Current version: 2.3.3**
 
 **Multi-LLM Safe Session Orchestration Framework**
 
@@ -47,6 +47,13 @@ py -3 upgrade.py --dry-run
 ```
 
 The script always fetches the newest UDO release from the repo, so downloading the latest `upgrade.py` first is all the updating the updater ever needs.
+
+**One caveat on that `curl`.** `raw.githubusercontent.com` is CDN-cached and has been observed serving a copy of `upgrade.py` several releases behind for a while after a release, while the release zip it downloads is already current. The run then reports the new version and installs the new files, but silently does none of the newer upgrader's work. You cannot spot it afterwards either, because a fresh install copies `upgrade.py` from the source over the one you downloaded. Since v2.3.3 the script compares itself against the release and warns when it is behind. If you want to skip the question entirely, clone instead:
+
+```bash
+git clone --depth 1 https://github.com/carderel/UDO.git /tmp/udo-latest
+python3 /tmp/udo-latest/upgrade.py <YOUR_PROJECT> --dry-run
+```
 
 If you already have `upgrade.py`, preview the plan, then apply it:
 
@@ -135,6 +142,7 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 
 | Version | Release | Major Features |
 |---------|---------|---|
+| v2.3.3  | 2026-08-11 | The upgrader says so when it is older than the release it is installing |
 | v2.3.2  | 2026-08-11 | Version stamp reaches the migrate lanes too |
 | v2.3.1  | 2026-08-11 | Installed state reports the version it was actually installed or upgraded to |
 | v2.3.0  | 2026-08-10 | Handoff bundles: export an install to a verifiable bundle, and restore a target from a backup |
@@ -150,6 +158,11 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 The legacy v4.x series (v4.9, v4.10, and earlier) was superseded by the v2.0 rewrite above; it is not compatible with this repository and is not maintained.
 
 ## Changelog
+
+### v2.3.3 (2026-08-11)
+
+- The upgrader now compares its own version against the release it is installing and warns when it is behind, naming both versions and offering a clone command that bypasses the CDN. Found by installing 2.3.2 from GitHub and getting a correct-looking install that had skipped the new work: `raw.githubusercontent.com` served a pre-2.3.1 script while the zip was current. A `SCRIPT_VERSION` constant carries this, held in step with the framework VERSION by a test rather than by release discipline
+- Install docs now state the caveat and give a clone-based alternative
 
 ### v2.3.2 (2026-08-11)
 

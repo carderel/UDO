@@ -39,6 +39,21 @@ from pathlib import Path
 
 DEFAULT_SOURCE_URL = "https://github.com/carderel/UDO/archive/refs/heads/main.zip"
 
+# The release this copy of the script was cut for. Kept in step with
+# "UDO Framework/VERSION" by a test, so it cannot drift by someone forgetting
+# to bump it.
+#
+# Why a script needs to know its own version: the documented install path
+# downloads this file from raw.githubusercontent.com, which is CDN-cached and
+# has been observed serving a copy several releases behind while the release
+# zip it fetches is current. The install then copies the current upgrade.py
+# from the source over the one you downloaded, so afterwards the file on disk
+# is current no matter which version actually ran. That makes the whole thing
+# invisible: the run reports the new version, installs new files, and silently
+# skips whatever the newer script would have done. Comparing this constant
+# against the source version turns that into a warning.
+SCRIPT_VERSION = "2.3.3"
+
 # ---------------------------------------------------------------------------
 # Constants: lane membership. These lists are the single source of truth for
 # both manifest construction (what gets printed) and apply (what gets done).
@@ -2620,6 +2635,32 @@ def build_arg_parser():
     return parser
 
 
+def _version_tuple(text):
+    return tuple(int(p) for p in re.findall(r"\d+", text or ""))
+
+
+def _warn_if_script_is_stale(source_version, source_arg):
+    """Say so when the running script predates the release it is installing.
+
+    Silence here is how a stale download stays invisible: the run prints the
+    new version, installs the new files, and quietly does none of the newer
+    script's work."""
+    if not source_version or _version_tuple(SCRIPT_VERSION) >= _version_tuple(source_version):
+        return
+    print("")
+    print(f"WARNING: this upgrade.py is version {SCRIPT_VERSION}, but the release it is "
+          f"installing is {source_version}.")
+    print("Whatever changed in the upgrader between those two versions will not happen on "
+          "this run, even though the run will report success.")
+    if source_arg is None:
+        print("")
+        print("The usual cause is CDN caching on raw.githubusercontent.com, which can serve a "
+              "stale copy of this file for a while after a release. To get the current one:")
+        print("    git clone --depth 1 https://github.com/carderel/UDO.git /tmp/udo-latest")
+        print("    python3 /tmp/udo-latest/upgrade.py <TARGET> --dry-run")
+    print("")
+
+
 def _failure_guidance(progress, backup_dir):
     """Restore guidance for a failure, tailored to how far apply actually
     got (tracked via `progress`, a simple {"lane": ..., "phase": ...} dict
@@ -2682,6 +2723,7 @@ def main(argv=None):
         source, cleanup_dir = fetch_source(args.source)
         _guard_source_not_target(target, source)
         source_version = read_source_version(source)
+        _warn_if_script_is_stale(source_version, args.source)
 
         detection = detect(target, source_version, args.mode)
 

@@ -103,6 +103,39 @@ def run_all(tmp):
         d.mkdir(parents=True)
         return d
 
+    def t_script_version_matches_the_release():
+        """SCRIPT_VERSION is what lets a stale download announce itself. A
+        literal nobody keeps current would announce the wrong thing, so the
+        repo holds it in step rather than trusting release discipline."""
+        shipped = (REPO / "UDO Framework" / "VERSION").read_text(encoding="utf-8").strip()
+        assert U.SCRIPT_VERSION == shipped, (
+            f"SCRIPT_VERSION is {U.SCRIPT_VERSION!r} but UDO Framework/VERSION is "
+            f"{shipped!r}. Bump both, or the staleness warning lies.")
+
+    def t_stale_script_warns(capsys=None):
+        """A script older than the release it installs must say so."""
+        import io
+        import contextlib
+        buf = io.StringIO()
+        real = U.SCRIPT_VERSION
+        U.SCRIPT_VERSION = "2.2.0"
+        try:
+            with contextlib.redirect_stdout(buf):
+                U._warn_if_script_is_stale("2.3.3", None)
+        finally:
+            U.SCRIPT_VERSION = real
+        out = buf.getvalue()
+        assert "WARNING" in out and "2.2.0" in out and "2.3.3" in out, out
+        assert "git clone" in out, "the warning must offer a way to get the current script"
+
+    def t_current_script_does_not_warn():
+        import io
+        import contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            U._warn_if_script_is_stale(U.SCRIPT_VERSION, None)
+        assert buf.getvalue() == "", f"unexpected output: {buf.getvalue()!r}"
+
     def t_export_read_only():
         """The invariant the whole design rests on. Whole tree, no exclusions."""
         d = build_v2(case("ro") / "proj")
@@ -273,6 +306,8 @@ def run_all(tmp):
         raise AssertionError("expected a refusal to restore from a foreign directory")
 
     for fn in [
+        t_script_version_matches_the_release,
+        t_stale_script_warns, t_current_script_does_not_warn,
         t_export_read_only, t_bundle_defaults_outside_the_project,
         t_roundtrip_v2, t_roundtrip_v4_root, t_roundtrip_v4_udo,
         t_v21_flat_state_is_wrapped,
