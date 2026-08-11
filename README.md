@@ -1,6 +1,6 @@
 # UDO: Universal Dynamic Orchestrator
 
-**Current version: 2.4.3**
+**Current version: 2.5.0**
 
 **Multi-LLM Safe Session Orchestration Framework**
 
@@ -157,6 +157,7 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 
 | Version | Release | Major Features |
 |---------|---------|---|
+| v2.5.0  | 2026-08-11 | Handoff bundle import (Phase B); backup no longer dies on a symlink |
 | v2.4.3  | 2026-08-11 | Seed agents are actually installed into the harness instead of shipping inert |
 | v2.4.2  | 2026-08-11 | Clone-as-project installs are detected and refused by validate.py; install docs corrected |
 | v2.4.1  | 2026-08-11 | Bootstrap is LLM-agnostic (AGENTS.md canonical); transcript rule moved to step 1; PROJECT_META version stamped |
@@ -177,6 +178,25 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 The legacy v4.x series (v4.9, v4.10, and earlier) was superseded by the v2.0 rewrite above; it is not compatible with this repository and is not maintained.
 
 ## Changelog
+
+### v2.5.0 (2026-08-11)
+
+**`--import-handoff` (v2.3 Phase B).** Rebuilds a project from a handoff bundle. Held back deliberately until real bundles from every field layout had been read by hand; that gate is met.
+
+Safety comes from two properties, neither of which is "verify the bundle":
+
+- **Nothing moves until the replacement exists and validates.** The new install is built in a staging directory and checked there. A crash, a bad bundle or a failed validation before the swap leaves the project exactly as it was, proven by a fixture that forces validation to fail and asserts the target is byte-identical
+- **The bundle is compared against what it would replace.** Checking a bundle against its own manifest proves it is internally perfect, which a bundle exported from the wrong folder also is. Import refuses when the bundle carries fewer records than the install being retired, and prints the comparison
+
+Four refusals, ordered by how badly they indicate the import is wrong: a real install one level below the target, a bundle thinner than what it replaces, unclassified items nobody described in NOTES.md, and another session active in the target. Each has an explicit override. The previous install is moved to `UDO-PRE-IMPORT-<timestamp>/`, never deleted, and every run prints its own `--restore` command.
+
+**Also fixed, found by rehearsing the import against a real project:**
+
+- `backup()` followed symlinks, so a single dangling one failed the backup and therefore every upgrade and import, before anything started. Container Site had one: its `.claude/skills/web-perf` pointed at a path one of our own migrate-root runs had moved, so that project could not be upgraded at all and nothing had said so. Links are now copied as links
+- Backup failures reported the offending path truncated from the wrong end, showing directory prefix instead of filename, and dropped the underlying OS error entirely whenever a path was identified, making "name too long", "permission denied" and "no such file" indistinguishable. Both fixed, and that is what found the symlink in one run
+- Export silently skipped symlinks. Nothing was lost in practice because the only one was dangling, which is exactly how it stayed invisible. They are now recorded in the manifest with their target and whether it exists, upholding the rule that nothing goes missing unnamed
+
+`tests/test_import.py`, 12 fixtures, all but two of them refusals.
 
 ### v2.4.3 (2026-08-11)
 

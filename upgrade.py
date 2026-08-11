@@ -52,7 +52,7 @@ DEFAULT_SOURCE_URL = "https://github.com/carderel/UDO/archive/refs/heads/main.zi
 # invisible: the run reports the new version, installs new files, and silently
 # skips whatever the newer script would have done. Comparing this constant
 # against the source version turns that into a warning.
-SCRIPT_VERSION = "2.4.3"
+SCRIPT_VERSION = "2.5.0"
 
 # ---------------------------------------------------------------------------
 # Constants: lane membership. These lists are the single source of truth for
@@ -928,12 +928,18 @@ def _backup_ignore(dir_path, names):
 
 
 def _backup_shorten(path_str, limit=120):
-    """Truncate a path for display; only appends '...' when it actually
-    had to cut something, so short paths are not shown as truncated."""
+    """Shorten a path for display by cutting the MIDDLE, never the tail.
+
+    This used to keep the first 120 characters. On a deep path that is all
+    directory prefix and no filename, so the message named the one thing the
+    reader already knew and dropped the one thing they needed. Keeping both
+    ends means the offending file is always visible."""
     s = str(path_str)
-    if len(s) > limit:
-        return s[:limit] + "..."
-    return s
+    if len(s) <= limit:
+        return s
+    head = limit * 2 // 3
+    tail = limit - head
+    return f"{s[:head]}...{s[-tail:]}"
 
 
 def _backup_offending_paths(exc):
@@ -973,12 +979,20 @@ def _backup_failure_error(exc):
     project, instead of letting a raw shutil/OSError traceback surface."""
     offending = _backup_offending_paths(exc)
     lines = ["Backup failed, no changes were made to your project."]
+    # Always report the underlying error, not only when no path was identified.
+    # Naming a file without saying what went wrong with it makes "name too
+    # long", "permission denied" and "no space left" indistinguishable.
+    lines.append(f"Underlying error: {exc}")
     if offending:
         lines.append("Offending path(s):")
         for p in offending:
             lines.append(f"  - {_backup_shorten(p)}")
-    else:
-        lines.append(f"Underlying error: {exc}")
+    if isinstance(exc, OSError) and exc.errno in (36, 63):  # ENAMETOOLONG
+        lines.append(
+            "The path was too long for this filesystem. Backups are written inside the "
+            "target as .udo-backup-<timestamp>/, which adds a directory level to every "
+            "path in the project, so a tree that already sits near the limit tips over. "
+            "Move the project somewhere with a shorter path and re-run.")
     if any(_backup_path_has_repeated_component(p) for p in offending):
         lines.append(
             "This looks like recursively nested checkpoint or backup copies "
@@ -1034,9 +1048,21 @@ def backup(target):
         dst = backup_dir / name
         try:
             if src.is_dir():
-                shutil.copytree(src, dst, ignore=_counting_ignore)
+                # symlinks=True copies links as links instead of following
+                # them. Following was fatal: a dangling symlink anywhere in the
+                # project raised ENOENT and failed the whole backup, which
+                # fails every upgrade and import, before anything started.
+                # Container Site hit exactly this. Its
+                # .claude/skills/web-perf pointed at ../../.agents/skills/...,
+                # which one of our own migrate-root runs had moved to
+                # UDO Project/.agents/, so the link had been dangling since,
+                # and the project could not be upgraded at all.
+                # Copying links as links also stops a symlinked tree from
+                # being duplicated into the backup.
+                shutil.copytree(src, dst, ignore=_counting_ignore, symlinks=True)
             else:
-                shutil.copy2(src, dst)
+                shutil.copy2(src, dst, follow_symlinks=False) if src.is_symlink() \
+                    else shutil.copy2(src, dst)
         except (shutil.Error, OSError) as exc:
             shutil.rmtree(backup_dir, ignore_errors=True)
             raise _backup_failure_error(exc) from exc
@@ -2355,12 +2381,44 @@ def classify_relpath(relpath, layout):
     return "unclassified", None, None
 
 
+def _standard_exclusion(rel):
+    """Reason this relative path is excluded from a bundle, or None."""
+    parts = Path(rel).parts
+    if parts[-1] in (".gitkeep", ".DS_Store"):
+        return f"boilerplate: {parts[-1]}"
+    for part in parts[:-1] or parts:
+        if part in EXCLUDE_DIR_NAMES or part.startswith(EXCLUDE_DIR_PREFIXES):
+            return f"standard exclusion: {part}"
+        if part.endswith(BUNDLE_SUFFIX):
+            return "an existing handoff bundle"
+    return None
+
+
 def _export_walk(root, bundle_path):
     """Every file under root, as (relpath, Path), with the standard exclusions
     reported rather than skipped silently."""
     out = []
+    symlinks = []
     for path in sorted(root.rglob("*")):
-        if path.is_dir() or path.is_symlink():
+        if path.is_symlink():
+            # Recorded, not copied. A bundle cannot faithfully carry a link
+            # whose target may be outside the install, and following it would
+            # silently inline someone else's files. Skipping it quietly was
+            # worse: the manifest's entire claim is that nothing goes missing
+            # without being named, and a working symlink would have vanished
+            # with no entry at all. Container Site had one (dangling, so
+            # nothing was lost, which is exactly how this stayed invisible).
+            try:
+                rel = path.relative_to(root).as_posix()
+            except ValueError:
+                continue
+            # Only the ones that matter. A symlink inside node_modules is
+            # already covered by the standard exclusion, and listing 53 of
+            # them buries the one in .claude/skills that a person needs to see.
+            if _standard_exclusion(rel) is None:
+                symlinks.append((rel, path.resolve(strict=False)))
+            continue
+        if path.is_dir():
             continue
         try:
             rel = path.relative_to(root).as_posix()
@@ -2391,7 +2449,7 @@ def _export_walk(root, bundle_path):
             except ValueError:
                 pass
         out.append((rel, path, excluded_by))
-    return out
+    return out, symlinks
 
 
 def _normalize_state_for_bundle(root, layout, source):
@@ -2459,7 +2517,7 @@ def export_bundle(target, bundle_path=None, install_root=None, layout=None, raw=
             f"bundle.\nUse --bundle \"{stamped}\" if you want a second one."
         )
 
-    entries = _export_walk(root, bundle if _is_within(bundle, root) else None)
+    entries, symlinks = _export_walk(root, bundle if _is_within(bundle, root) else None)
     state, unmapped = (None, {}) if resolved_layout == "raw" else _normalize_state_for_bundle(
         root, resolved_layout, None)
 
@@ -2512,6 +2570,13 @@ def export_bundle(target, bundle_path=None, install_root=None, layout=None, raw=
             entry["renamed_from"] = rel
             entry["renamed_reason"] = "path not portable, or a case-insensitive collision"
         inventory.append(entry)
+
+    for rel, resolved in symlinks:
+        inventory.append({
+            "path": rel, "disposition": "excluded",
+            "reason": ("symlink, not copied (points at "
+                       f"{resolved}{'' if resolved.exists() else ', which does not exist'})"),
+        })
 
     if state is not None:
         write_json(bundle / "state.json", state)
@@ -2603,6 +2668,359 @@ def _active_session_files(root, minutes=30):
 
 
 # ---------------------------------------------------------------------------
+# Handoff bundle: import (v2.3 Phase B)
+#
+# This is the only command in the tool that can destroy a project, which is why
+# it shipped after export rather than beside it: the bundle format was read by
+# hand against all four real field layouts first.
+#
+# Two properties carry the safety, and neither is "verify the bundle":
+#
+#   Nothing moves until the replacement exists and validates. The new install
+#   is built in a staging directory and checked there. A crash, a bad bundle or
+#   a failed validation before the swap leaves the project exactly as it was.
+#
+#   The bundle is compared against what it would replace. Verification that
+#   checks a bundle against its own manifest proves the bundle is internally
+#   perfect, which a bundle exported from the wrong folder also is. Only a
+#   comparison against the install about to be retired catches that.
+# ---------------------------------------------------------------------------
+
+STAGING_PREFIX = ".udo-import-staging-"
+PRE_IMPORT_PREFIX = "UDO-PRE-IMPORT-"
+
+
+class ImportError_(UpgradeError):
+    pass
+
+
+def _load_manifest(bundle):
+    manifest_path = bundle / "manifest.json"
+    if not manifest_path.is_file():
+        raise ImportError_(f"No manifest.json in {bundle}. That is not a handoff bundle.")
+    manifest = load_json(manifest_path)
+    if not isinstance(manifest, dict):
+        raise ImportError_(f"{manifest_path} is not valid JSON.")
+    fmt = manifest.get("bundle_format")
+    if fmt != BUNDLE_FORMAT:
+        raise ImportError_(
+            f"bundle_format is {fmt!r}, and this upgrader understands {BUNDLE_FORMAT}. "
+            "Refusing to guess at a format it was not written for. Use the version of "
+            "upgrade.py that produced the bundle, or re-export with this one.")
+    return manifest
+
+
+def _verify_bundle(bundle, manifest):
+    """Every file the manifest says is in the bundle must be there and match.
+    Runs before anything is touched, so a failure costs nothing."""
+    missing, corrupt = [], []
+    for entry in manifest.get("inventory", []):
+        dest = entry.get("bundle_path")
+        if not dest:
+            continue
+        path = bundle / dest
+        if not path.is_file():
+            missing.append(dest)
+        elif _sha256_file(path) != entry.get("sha256"):
+            corrupt.append(dest)
+    if missing or corrupt:
+        lines = []
+        if missing:
+            lines.append(f"  {len(missing)} file(s) listed in the manifest are not in the bundle:")
+            lines += [f"    {p}" for p in missing[:10]]
+        if corrupt:
+            lines.append(f"  {len(corrupt)} file(s) do not match their recorded checksum:")
+            lines += [f"    {p}" for p in corrupt[:10]]
+        raise ImportError_("This bundle is not intact.\n" + "\n".join(lines))
+
+
+def count_install_records(install):
+    """Records already in the install that an import would retire, per class."""
+    counts = {c: 0 for c in RECORD_CLASSES}
+    for base in (install / "UDO Project" / ".project-catalog", install / ".project-catalog"):
+        if not base.is_dir():
+            continue
+        for cls in RECORD_CLASSES:
+            d = base / cls
+            if d.is_dir():
+                counts[cls] += sum(1 for e in d.iterdir()
+                                   if e.is_file() and not e.name.startswith(".")
+                                   and e.name != "README.md")
+    extra = install / "UDO Project" / ".checkpoints"
+    if extra.is_dir():
+        counts["checkpoints"] += sum(1 for e in extra.rglob("*") if e.is_file())
+    return counts
+
+
+def _gate_record_loss(manifest, target, accept):
+    bundle_counts = manifest.get("counts", {})
+    installed = count_install_records(target)
+    shortfalls = [(c, bundle_counts.get(c, 0), installed[c])
+                  for c in RECORD_CLASSES if bundle_counts.get(c, 0) < installed[c]]
+    if not shortfalls or accept:
+        return shortfalls
+    rows = "\n".join(f"  {c:<12} {b:>6} {i:>10}" for c, b, i in shortfalls)
+    raise ImportError_(
+        "The bundle carries less than the install it would replace.\n\n"
+        f"  {'':<12} {'bundle':>6} {'installed':>10}\n{rows}\n\n"
+        f"The bundle was exported from {manifest.get('source', {}).get('path', '?')} on "
+        f"{manifest.get('exported_at', '?')}, and this target holds more history than it does. "
+        "The usual cause is an export that ran against the wrong folder.\n\n"
+        "If you have genuinely decided to replace the larger history with the smaller one, "
+        "re-run with --accept-record-loss.")
+
+
+def _gate_undescribed(bundle, manifest, accept):
+    unclassified = [e for e in manifest.get("inventory", [])
+                    if e.get("disposition") == "unclassified"]
+    if not unclassified or accept:
+        return
+    notes = bundle / "NOTES.md"
+    if notes.is_file() and _sha256_file(notes) == manifest.get("notes_sha256"):
+        raise ImportError_(
+            f"{len(unclassified)} item(s) in this bundle were never classified, and NOTES.md "
+            "has not been touched since export, so nobody has said what they are.\n\n"
+            f"They would land in UDO Project/.project-catalog/imported-unclassified/ as an "
+            "undocumented pile. Describe them in:\n"
+            f"    {notes}\n\n"
+            "Then re-run. To proceed without describing them, use --accept-undescribed. "
+            "(Any edit clears this check; it exists to make skipping it deliberate.)")
+
+
+def _gate_concurrency(target, force):
+    active = _active_session_files(target)
+    if not active or force:
+        return
+    lines = "\n".join(f"    {p}  modified {m} minute(s) ago" for p, m in active[:5])
+    raise ImportError_(
+        "This project looks like it has a session running right now:\n" + lines +
+        "\n\nImport rebuilds UDO Project/ wholesale, so anything that session is holding in "
+        "memory or about to write would be lost or would land in a folder that no longer "
+        "exists. Close the other session, or re-run with --force-concurrent.")
+
+
+def _gate_nested(target, install_root):
+    if install_root:
+        return
+    nested = find_nested_installs(target)
+    if not nested:
+        return
+    raise ImportError_(
+        f"{target} has UDO install(s) one level below it:\n" + _nested_lines(nested) +
+        "\n\nImporting here would rebuild this folder and leave those untouched, which is the "
+        "two-install condition that produced every silent mis-install this tool exists to "
+        "prevent. Name the one you mean with --install-root, or point the import at it "
+        "directly.")
+
+
+def import_handoff(bundle_path, target, source, assume_yes=False, accept_record_loss=False,
+                   accept_undescribed=False, force_concurrent=False, install_root=None):
+    bundle = Path(bundle_path).expanduser().resolve()
+    if not bundle.is_dir():
+        raise ImportError_(f"{bundle} is not a directory.")
+    if install_root:
+        target = target / install_root
+        if not target.is_dir():
+            raise ImportError_(f"--install-root {install_root!r} is not a directory.")
+
+    manifest = _load_manifest(bundle)
+    _verify_bundle(bundle, manifest)
+
+    src_path = manifest.get("source", {}).get("path")
+    if src_path and Path(src_path) != target:
+        print(f"\nNote: this bundle was exported from\n    {src_path}\nand you are importing into\n    {target}")
+        if assume_yes:
+            raise ImportError_(
+                "Refusing to import a bundle into a different project than it came from while "
+                "--yes is set. Re-run without --yes to confirm interactively, or check the path.")
+        if not confirm():
+            raise ImportError_("Aborted.")
+
+    # Ordered by how badly the condition indicates the import is wrong, not by
+    # convenience. "You are pointing at the wrong folder" and "this bundle
+    # carries less than what it replaces" are the two that lose work; the other
+    # two are hygiene. Reporting hygiene first would bury them.
+    _gate_nested(target, install_root)
+    shortfalls = _gate_record_loss(manifest, target, accept_record_loss)
+    _gate_undescribed(bundle, manifest, accept_undescribed)
+    _gate_concurrency(target, force_concurrent)
+
+    if manifest.get("mode") == "raw":
+        print("\nThis is a raw bundle: nothing in it was classified. Everything will land in")
+        print("UDO Project/.project-catalog/imported-unclassified/ and nothing will be placed")
+        print("into sessions, history or decisions. Raw bundles capture; they do not migrate.")
+
+    print(f"\nImport {bundle}\n    to {target}")
+    counts = manifest.get("counts", {})
+    for cls in RECORD_CLASSES:
+        if counts.get(cls):
+            print(f"  {cls:<12} {counts[cls]}")
+    if counts.get("unclassified"):
+        print(f"  {'unclassified':<12} {counts['unclassified']}")
+    if shortfalls and accept_record_loss:
+        print("  WARNING: proceeding with fewer records than the install being replaced "
+              "(--accept-record-loss)")
+    print("\n  The current install is moved aside, not deleted, and nothing moves until the")
+    print("  replacement has been built and has passed validate.py.")
+    if not assume_yes and not confirm():
+        print("Aborted.")
+        return 1
+
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    backup_dir, _excluded = backup(target)
+    print(f"Backup created at: {backup_dir}")
+
+    staging = target / f"{STAGING_PREFIX}{stamp}"
+    try:
+        _stage_import(staging, bundle, manifest, target, source)
+        _reconcile_import(staging, manifest)
+        rc, output = run_validate(staging)
+        if rc != 0:
+            raise ImportError_(
+                "The staged install failed validate.py, so nothing was moved and your project "
+                "is untouched.\n" + output)
+        legacy = _swap_in_staging(staging, target, stamp)
+    except Exception:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+
+    print(f"\nImport complete. Previous install moved to {legacy.name}/")
+    print(f"Backup: {backup_dir}")
+    print(f"To undo: python3 upgrade.py --restore \"{backup_dir}\" \"{target}\"")
+    return 0
+
+
+def _stage_import(staging, bundle, manifest, target, source):
+    """Build the complete replacement inside `staging`. Nothing outside it is
+    written, so failure here costs a directory nobody has seen."""
+    staging.mkdir(parents=True, exist_ok=False)
+    fresh = _manifest_fresh(staging, source)
+    _apply_fresh(fresh, staging, source)
+    _stamp_udo_version(staging, source)
+
+    state_file = bundle / "state.json"
+    if state_file.is_file():
+        state = load_json(state_file)
+        if isinstance(state, dict):
+            existing = load_json(staging / "UDO Project" / "PROJECT_STATE.json")
+            merged = state
+            if isinstance(existing, dict) and "project_state" in existing and "project_state" in state:
+                # Keep any field the current schema has that the bundle predates,
+                # rather than installing a state missing keys validate.py requires.
+                base = existing["project_state"]
+                base.update(state["project_state"])
+                merged = {"project_state": base}
+            write_json(staging / "UDO Project" / "PROJECT_STATE.json", merged)
+    for name in ("unmapped.json",):
+        if (bundle / name).is_file():
+            shutil.copy2(str(bundle / name),
+                         str(staging / "UDO Project" / ".project-catalog" / name))
+
+    _stamp_udo_version(staging, source)
+
+    for entry in manifest.get("inventory", []):
+        dest = entry.get("bundle_path")
+        if not dest:
+            continue
+        src = bundle / dest
+        if dest.startswith("records/"):
+            out = staging / "UDO Project" / ".project-catalog" / dest[len("records/"):]
+        elif dest.startswith("project/"):
+            out = _project_destination(staging, dest[len("project/"):])
+        elif dest.startswith("UNCLASSIFIED/"):
+            out = (staging / "UDO Project" / ".project-catalog" / "imported-unclassified"
+                   / dest[len("UNCLASSIFIED/"):])
+        else:
+            continue
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(str(src), str(out))
+        entry["_staged_at"] = str(out)
+
+    notes = bundle / "NOTES.md"
+    if notes.is_file():
+        out = staging / "UDO Project" / ".project-catalog" / "imported-unclassified" / "NOTES.md"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(str(notes), str(out))
+    sync_agents(staging, quiet=True)
+
+
+_PROJECT_DEST_MAP = {
+    "agents": "UDO Project/.agents",
+    "rules": "UDO Project/.rules",
+    "memory": "UDO Project/.memory",
+    "outputs": "UDO Project/.outputs",
+    "inputs": "UDO Project/.inputs",
+    "takeover": "UDO Project/.takeover",
+    "tools": "UDO Project/.tools",
+    "evidence": "UDO Project/.evidence",
+    "claude": ".claude",
+    "udo-hook": "UDO Project/.udo",
+    "user-uploads": "UDO Project/User Uploads",
+    "user-provided-files": "User Provided Files",
+    "state-backups": "UDO Project/.project-catalog/backups",
+    "tools-skills": "TOOLS/skills",
+}
+
+
+def _project_destination(staging, tail):
+    head, _, rest = tail.partition("/")
+    mapped = _PROJECT_DEST_MAP.get(head)
+    if mapped:
+        return staging / mapped / rest if rest else staging / mapped
+    if head == "SKILLS_INDEX.md":
+        return staging / "TOOLS" / "SKILLS_INDEX.md"
+    if head == "CLAUDE-in-UDO-Project.md":
+        return staging / "UDO Project" / "CLAUDE.md"
+    if head in ("AGENTS.md", "CLAUDE.md", "GEMINI.md"):
+        return staging / head
+    return staging / "UDO Project" / tail
+
+
+def _reconcile_import(staging, manifest):
+    """Every file the bundle carried must now exist in the staged install.
+    Checked before anything is swapped in, so an unaccounted file costs a
+    refusal rather than a half-migrated project."""
+    missing = [e["bundle_path"] for e in manifest.get("inventory", [])
+               if e.get("bundle_path") and not Path(e.get("_staged_at", "/nonexistent")).is_file()]
+    if missing:
+        raise ImportError_(
+            f"{len(missing)} file(s) from the bundle did not reach the staged install:\n" +
+            "\n".join(f"    {p}" for p in missing[:15]) +
+            "\n\nNothing has been moved; your project is untouched.")
+
+
+def _swap_in_staging(staging, target, stamp):
+    """The only destructive step, and it runs last, after the replacement has
+    been built and validated. The old install is moved aside, never deleted."""
+    legacy = target / f"{PRE_IMPORT_PREFIX}{stamp}"
+    legacy.mkdir(parents=True, exist_ok=False)
+
+    # The v2 folders, plus the v4 protocol files and folders when the source
+    # was a v4-at-root install. Retiring only the v2 folders would leave
+    # ORCHESTRATOR.md, PROJECT_STATE.json and friends sitting at the root
+    # beside the new "UDO Framework"/"UDO Project", which is precisely the
+    # half-and-half shape detection cannot read. Anything not on these lists is
+    # the user's own work and is never moved.
+    retire = sorted(V22_STRUCTURAL_DIR_NAMES) + V4_ROOT_RECOGNIZED_FILES + V4_ROOT_RECOGNIZED_DIRS
+    for name in retire:
+        current = target / name
+        if current.exists():
+            dest = legacy / name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(current), str(dest))
+    for item in sorted(staging.iterdir()):
+        dest = target / item.name
+        if dest.exists():
+            if dest.is_dir():
+                shutil.rmtree(dest)
+            else:
+                dest.unlink()
+        shutil.move(str(item), str(dest))
+    shutil.rmtree(staging, ignore_errors=True)
+    return legacy
+
+
+# ---------------------------------------------------------------------------
 # Restore (v2.3 Phase A)
 # ---------------------------------------------------------------------------
 
@@ -2677,6 +3095,19 @@ def build_arg_parser():
     handoff.add_argument("--bundle", default=None, metavar="PATH",
                          help="With --export: where to write the bundle. Defaults to "
                               "../<project>-udo-handoff, deliberately outside the project.")
+    handoff.add_argument("--import-handoff", default=None, metavar="BUNDLE",
+                         help="Rebuild the target from a handoff bundle. Builds the "
+                              "replacement in a staging directory and validates it before "
+                              "anything moves; the current install is set aside, never deleted.")
+    handoff.add_argument("--accept-record-loss", action="store_true",
+                         help="With --import-handoff: proceed even though the bundle carries "
+                              "fewer records than the install it replaces.")
+    handoff.add_argument("--accept-undescribed", action="store_true",
+                         help="With --import-handoff: proceed with unclassified items nobody "
+                              "has described in NOTES.md.")
+    handoff.add_argument("--force-concurrent", action="store_true",
+                         help="With --import-handoff: proceed even though another session "
+                              "looks active in the target.")
     handoff.add_argument("--sync-agents", action="store_true",
                          help="Regenerate harness copies of UDO Project/.agents/ and exit. Runs automatically on every install; this is for after you add or edit an agent.")
     handoff.add_argument("--restore", default=None, metavar="BACKUP_DIR",
@@ -2861,6 +3292,23 @@ def main(argv=None):
         except UpgradeError as exc:
             print(f"\nERROR: {exc}\n", file=sys.stderr)
             return 1
+
+    if args.import_handoff:
+        cleanup = None
+        try:
+            source, cleanup = fetch_source(args.source)
+            return import_handoff(
+                args.import_handoff, target, source, assume_yes=args.yes,
+                accept_record_loss=args.accept_record_loss,
+                accept_undescribed=args.accept_undescribed,
+                force_concurrent=args.force_concurrent,
+                install_root=args.install_root)
+        except UpgradeError as exc:
+            print(f"\nERROR: {exc}\n", file=sys.stderr)
+            return 1
+        finally:
+            if cleanup is not None:
+                shutil.rmtree(cleanup, ignore_errors=True)
 
     if args.sync_agents:
         print(f"Syncing agents in {target}")
