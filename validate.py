@@ -46,6 +46,53 @@ if sp.is_file():
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
         errs.append(f"PROJECT_STATE.json INVALID JSON: {e}")
 
+# 2b. Version agreement. The framework, the state and the metadata all carry a
+# version, and they are only kept in step by upgrade.py stamping them. An
+# install created by cloning the distribution never runs upgrade.py, so it ends
+# up with current framework files and stale project metadata, and nothing said
+# so: a real session reported "uninitialized install on UDO 2.2" while the
+# framework beside it was 2.4.1.
+fw_version = ""
+if (fw / "VERSION").is_file():
+    fw_version = (fw / "VERSION").read_text(encoding="utf-8").strip()
+if fw_version:
+    if state.get("udo_version") and state["udo_version"] != fw_version:
+        errs.append(f"version mismatch: UDO Framework/VERSION is {fw_version} but "
+                    f"PROJECT_STATE.json says udo_version {state['udo_version']}. "
+                    "Run upgrade.py against this folder to reconcile.")
+    mp = proj / "PROJECT_META.json"
+    if mp.is_file():
+        try:
+            meta = json.loads(mp.read_text(encoding="utf-8")).get("project_metadata", {})
+            for key in ("udo_version", "framework_version"):
+                if meta.get(key) and meta[key] != fw_version:
+                    errs.append(f"version mismatch: UDO Framework/VERSION is {fw_version} but "
+                                f"PROJECT_META.json says {key} {meta[key]}. "
+                                "Run upgrade.py against this folder to reconcile.")
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            errs.append(f"PROJECT_META.json INVALID JSON: {e}")
+
+# 2c. Cloned-in-place distribution. Cloning the UDO repo as your project gives
+# you the framework, but also its git history, its tests and its release
+# tooling, and leaves the project metadata unstamped. The dangerous part is the
+# remote: commits made in this folder target the UDO repository, not a
+# repository for this project.
+gitcfg = proj.parent / ".git" / "config"
+if gitcfg.is_file():
+    try:
+        cfg = gitcfg.read_text(encoding="utf-8", errors="replace")
+        if "carderel/UDO" in cfg or "/UDO.git" in cfg:
+            errs.append(
+                "this folder's git remote points at the UDO distribution repository, so it "
+                "looks like the distribution was cloned in place as the project. Commits here "
+                "would target UDO itself. Install with upgrade.py into a project folder "
+                "instead, and remove or repoint this remote.")
+    except OSError:
+        pass
+if (proj.parent / "tests" / "test_detect.py").is_file():
+    warns.append("tests/ from the UDO distribution is present; a project install does not "
+                 "need it (another sign of a clone-in-place install)")
+
 # 3. Session record for today (warn only: may be mid-first-turn)
 today = datetime.date.today().strftime("%Y-%m-%d")
 if not glob.glob(str(proj / ".project-catalog" / "history" / f"{today}*.md")):

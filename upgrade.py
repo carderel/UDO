@@ -52,7 +52,7 @@ DEFAULT_SOURCE_URL = "https://github.com/carderel/UDO/archive/refs/heads/main.zi
 # invisible: the run reports the new version, installs new files, and silently
 # skips whatever the newer script would have done. Comparing this constant
 # against the source version turns that into a warning.
-SCRIPT_VERSION = "2.4.1"
+SCRIPT_VERSION = "2.4.2"
 
 # ---------------------------------------------------------------------------
 # Constants: lane membership. These lists are the single source of truth for
@@ -2730,6 +2730,21 @@ def _print_next_steps(target):
         print("  3. This folder is not a git repository, so the session logs, decisions")
         print("     and transcripts the protocol writes are not version controlled.")
         print("     Run `git init` here if you want that history recoverable.")
+
+    if target.name.upper().startswith("UDO"):
+        # Installing into a folder called UDO/ inside a larger folder is the
+        # shape that keeps producing wrong-root sessions in the field: the
+        # session gets opened at the parent, where nothing resolves and the
+        # harness config at this level is never read at all.
+        print("")
+        print(f"  Note: you installed into a folder named \"{target.name}\", which suggests UDO")
+        print("  is meant to sit inside a larger project folder. That works, but the session")
+        print("  must be opened here, not at the folder above. Opened above, the protocol's")
+        print("  paths do not resolve and the hooks at this level are never loaded, which is")
+        print("  invisible from inside the session.")
+        print("  UDO is designed to be installed at the root of the project it serves, with")
+        print(f"  \"UDO Framework\" and \"UDO Project\" beside your own files. Consider")
+        print(f"  installing at {target.parent} instead.")
 
 
 def _failure_guidance(progress, backup_dir):

@@ -1,6 +1,6 @@
 # UDO: Universal Dynamic Orchestrator
 
-**Current version: 2.4.1**
+**Current version: 2.4.2**
 
 **Multi-LLM Safe Session Orchestration Framework**
 
@@ -21,14 +21,29 @@ This release introduces architectural separation with `/UDO Framework/` (immutab
 
 There is a single source for UDO: `https://github.com/carderel/UDO` (clone it, or download the zip). See `DOCUMENTATION/QUICK_START.md` for full install steps for a brand new project versus adding UDO to an existing one, on Mac, Linux, and Windows.
 
-### Fastest path, new project
+### New project
 
 ```bash
-git clone https://github.com/carderel/UDO.git my-project
-cd my-project
+git clone --depth 1 https://github.com/carderel/UDO.git /tmp/udo-latest
+mkdir my-project && cd my-project
+python3 /tmp/udo-latest/upgrade.py .
 ```
 
-Then start your LLM CLI from that folder and say: Read 'UDO Framework/START_HERE.md' and begin.
+Then start your LLM CLI **from `my-project`**. It will boot itself: `AGENTS.md` is installed at that root and carries the boot sequence, and `CLAUDE.md` and `GEMINI.md` point at it.
+
+**Do not clone this repository as your project.** It used to be the documented shortcut and it produces a subtly broken install:
+
+- The project metadata is never stamped, because stamping happens in `upgrade.py`. You get current framework files next to `PROJECT_STATE.json` claiming an older version, and a session that reads its own state will report the wrong one.
+- You inherit this repository's git history and its `origin`, so commits you make in your project target the UDO repository rather than one of your own.
+- You get `tests/`, the release tooling and the distribution's `DOCUMENTATION/`, none of which belong in a project.
+
+`validate.py` now fails on all of this, so an install made the old way will tell you.
+
+### Where to install it
+
+Install UDO **at the root of the project it serves**, so `UDO Framework/` and `UDO Project/` sit beside your own files. That is what the Framework/Project split is for.
+
+Installing into a `UDO/` subfolder inside a larger folder works, but the session has to be opened at that subfolder, not the folder above it. Opened above, the protocol's relative paths do not resolve and, less visibly, the harness configuration at the install root is never read, so UDO's own enforcement hooks are silently inactive for the whole session.
 
 ### Upgrading an existing UDO project
 
@@ -142,6 +157,7 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 
 | Version | Release | Major Features |
 |---------|---------|---|
+| v2.4.2  | 2026-08-11 | Clone-as-project installs are detected and refused by validate.py; install docs corrected |
 | v2.4.1  | 2026-08-11 | Bootstrap is LLM-agnostic (AGENTS.md canonical); transcript rule moved to step 1; PROJECT_META version stamped |
 | v2.4.0  | 2026-08-11 | Ships a CLAUDE.md so a fresh install boots the protocol on its own, and says where to open the session |
 | v2.3.3  | 2026-08-11 | The upgrader says so when it is older than the release it is installing |
@@ -160,6 +176,16 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 The legacy v4.x series (v4.9, v4.10, and earlier) was superseded by the v2.0 rewrite above; it is not compatible with this repository and is not maintained.
 
 ## Changelog
+
+### v2.4.2 (2026-08-11)
+
+The documented "fastest path" for a new project was `git clone` the distribution and use it as your project. That produced a subtly broken install, and a real session found it by reporting an "uninitialized install on UDO 2.2" while the framework beside it read 2.4.1.
+
+- `validate.py` now **errors** when `UDO Framework/VERSION` disagrees with `udo_version` in `PROJECT_STATE.json` or `PROJECT_META.json`. Stamping happens in `upgrade.py`, so an install that never ran it carries current framework files and stale project metadata, and nothing said so
+- `validate.py` now **errors** when the folder's git remote points at the UDO repository. Cloning in place means commits made in your project target UDO itself, which is the worst part of that shortcut and the least visible
+- `validate.py` warns when the distribution's `tests/` is present, another sign of the same thing
+- Install docs rewritten: clone to a temp directory and run `upgrade.py` into your project folder. A new section says where to install it and what breaks when the session is opened above the install
+- Installing into a folder named `UDO*` now prints a note explaining that the session must be opened there rather than at the parent, and that installing at the project root is the intended shape
 
 ### v2.4.1 (2026-08-11)
 
