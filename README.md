@@ -19,7 +19,7 @@ This release introduces architectural separation with `/UDO Framework/` (immutab
 
 ## Quick Start
 
-There is a single source for UDO: `https://github.com/carderel/UDO` (clone it, or download the zip). See `DOCUMENTATION/QUICK_START.md` for full install steps for a brand new project versus adding UDO to an existing one, on Mac, Linux, and Windows.
+There is a single source for UDO: `https://github.com/carderel/UDO`. Clone it somewhere temporary and install from there; do not use the clone itself as your project (see below). See `DOCUMENTATION/QUICK_START.md` for full install steps for a brand new project versus adding UDO to an existing one, on Mac, Linux, and Windows.
 
 ### New project
 
@@ -85,7 +85,7 @@ Other flags: `--source <path-or-url>` installs from a local checkout or zip inst
 
 ## Directory Structure
 
-Cloning (or unzipping) the repo gives you 5 folders at your project root:
+A completed install gives you these at your project root:
 
 ```
 your-project/
