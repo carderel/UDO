@@ -52,7 +52,7 @@ DEFAULT_SOURCE_URL = "https://github.com/carderel/UDO/archive/refs/heads/main.zi
 # invisible: the run reports the new version, installs new files, and silently
 # skips whatever the newer script would have done. Comparing this constant
 # against the source version turns that into a warning.
-SCRIPT_VERSION = "2.4.2"
+SCRIPT_VERSION = "2.4.3"
 
 # ---------------------------------------------------------------------------
 # Constants: lane membership. These lists are the single source of truth for
@@ -1521,6 +1521,7 @@ def apply(manifest, lane_mode, target, source):
     # forward, so an upgraded project kept claiming whatever version it was
     # first installed at.
     _stamp_udo_version(target, source)
+    sync_agents(target)
 
 
 def _apply_fresh(manifest, target, source):
@@ -2676,6 +2677,8 @@ def build_arg_parser():
     handoff.add_argument("--bundle", default=None, metavar="PATH",
                          help="With --export: where to write the bundle. Defaults to "
                               "../<project>-udo-handoff, deliberately outside the project.")
+    handoff.add_argument("--sync-agents", action="store_true",
+                         help="Regenerate harness copies of UDO Project/.agents/ and exit. Runs automatically on every install; this is for after you add or edit an agent.")
     handoff.add_argument("--restore", default=None, metavar="BACKUP_DIR",
                          help="Restore a target from a .udo-backup-* directory this tool wrote.")
     return parser
@@ -2705,6 +2708,74 @@ def _warn_if_script_is_stale(source_version, source_arg):
         print("    git clone --depth 1 https://github.com/carderel/UDO.git /tmp/udo-latest")
         print("    python3 /tmp/udo-latest/upgrade.py <TARGET> --dry-run")
     print("")
+
+
+# Harness directories that read generated agent definitions. `.agents/` stays
+# the canonical, tool-neutral source; these are adapter outputs. Adding a
+# harness is one entry. Kept here rather than in the protocol prose because the
+# protocol asked an LLM to "regenerate harness copies" and, across every
+# install in the field, no LLM ever did: the seed agents shipped with
+# synced-to-harness "pending" and stayed inert.
+HARNESS_AGENT_DIRS = [
+    (".claude/agents", "Claude Code"),
+]
+
+_AGENT_INDEX_SKIP = {"README.md", "AGENTS_INDEX.md"}
+
+
+def sync_agents(target, quiet=False):
+    """Generate harness copies of every agent in UDO Project/.agents/.
+
+    Never deletes: a harness agent with no `.agents/` source is the user's own
+    and is left alone. Returns the list of (harness_dir, [names written])."""
+    source_dir = target / "UDO Project" / ".agents"
+    if not source_dir.is_dir():
+        return []
+    agents = sorted(p for p in source_dir.glob("*.md") if p.name not in _AGENT_INDEX_SKIP)
+    if not agents:
+        return []
+
+    written = []
+    for rel, label in HARNESS_AGENT_DIRS:
+        dest_dir = target / rel
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        names = []
+        for agent in agents:
+            dest = dest_dir / agent.name
+            new = agent.read_bytes()
+            if not dest.is_file() or dest.read_bytes() != new:
+                dest.write_bytes(new)
+                names.append(agent.stem)
+        written.append((rel, label, names, len(agents)))
+        if not quiet:
+            if names:
+                print(f"  agents synced to {rel}/: {', '.join(names)}")
+            else:
+                print(f"  agents already current in {rel}/ ({len(agents)} definitions)")
+    _mark_agents_synced(source_dir / "AGENTS_INDEX.md", [a.stem for a in agents])
+    return written
+
+
+def _mark_agents_synced(index_path, names):
+    """Flip the index's synced-to-harness column for agents that now have a
+    harness copy. The column exists to be read by a session at resume; leaving
+    it saying "pending" after the copies exist would be worse than not tracking
+    it at all."""
+    if not index_path.is_file():
+        return
+    try:
+        text = index_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return
+    out = []
+    for line in text.splitlines(keepends=True):
+        stripped = line.lstrip()
+        if stripped.startswith("|"):
+            cells = [c.strip() for c in stripped.strip().strip("|").split("|")]
+            if cells and cells[0] in names and line.rstrip().endswith("pending |"):
+                line = line.rstrip()[: -len("pending |")] + "yes |\n"
+        out.append(line)
+    index_path.write_text("".join(out), encoding="utf-8")
 
 
 def _print_next_steps(target):
@@ -2791,6 +2862,12 @@ def main(argv=None):
             print(f"\nERROR: {exc}\n", file=sys.stderr)
             return 1
 
+    if args.sync_agents:
+        print(f"Syncing agents in {target}")
+        if not sync_agents(target):
+            print("  no UDO Project/.agents/ definitions found")
+        return 0
+
     if args.export:
         try:
             bundle, manifest, unclassified = export_bundle(
@@ -2858,9 +2935,11 @@ def main(argv=None):
             # applied here. Missing this is why the first attempt at the fix
             # covered only fresh and upgrade.
             _stamp_udo_version(target, source)
+            sync_agents(target)
         elif lane_mode == "migrate-root":
             unmapped_by_lane, legacy_dir_name = _apply_migrate_root(manifest, target, source, progress)
             _stamp_udo_version(target, source)
+            sync_agents(target)
         else:
             apply(manifest, lane_mode, target, source)
             unmapped_by_lane = {}

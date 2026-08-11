@@ -112,7 +112,12 @@ hdir = proj.parent / ".claude" / "agents"
 if hdir.is_dir():
     gen = {p.name for p in hdir.glob("*.md")}
     if canon - gen: warns.append(f"agents not synced to harness: {sorted(canon - gen)}")
-    if gen - canon: errs.append(f"harness agents with no .agents/ source (drift): {sorted(gen - canon)}")
+    if gen - canon:
+        errs.append(
+            f"harness agents with no .agents/ source (drift): {sorted(gen - canon)}. "
+            f"'{proj.name}/.agents/' is the source of truth and harness copies are generated "
+            "from it, so these are not tracked, not carried by a handoff bundle, and not "
+            "regenerated. Move each one into .agents/ and run: python3 upgrade.py --sync-agents")
 
 for w in warns: print(f"WARN  {w}")
 for e in errs: print(f"ERROR {e}")
