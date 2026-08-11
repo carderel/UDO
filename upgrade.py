@@ -52,7 +52,7 @@ DEFAULT_SOURCE_URL = "https://github.com/carderel/UDO/archive/refs/heads/main.zi
 # invisible: the run reports the new version, installs new files, and silently
 # skips whatever the newer script would have done. Comparing this constant
 # against the source version turns that into a warning.
-SCRIPT_VERSION = "2.3.3"
+SCRIPT_VERSION = "2.4.0"
 
 # ---------------------------------------------------------------------------
 # Constants: lane membership. These lists are the single source of truth for
@@ -87,6 +87,12 @@ FRESH_TOP_LEVEL = [
     "validate.py",
     "cleanup-misinstall.py",
     ".claude",
+    # Claude Code reads CLAUDE.md automatically, so shipping one is what makes
+    # a fresh install boot the protocol without the user having to say "read
+    # START_HERE". Note this does not contradict the migrate-root comment
+    # below: an existing CLAUDE.md is still the user's own file and is never
+    # moved or overwritten. This only puts one there when there is none.
+    "CLAUDE.md",
     "README.md",
     "START_HERE.md",
     "LICENSE",
@@ -116,6 +122,11 @@ ROOT_LANE_REPLACE = [
 # user's own hook configuration in .claude/settings.json is never clobbered.
 ROOT_LANE_ADD_IF_ABSENT = [
     ".claude/settings.json",
+    # ADD only, never REPLACE. Existing projects hand-wrote their own CLAUDE.md
+    # long before the distribution shipped one, and theirs names the real
+    # layout of that specific install. Overwriting it would break exactly the
+    # projects that had solved this problem for themselves.
+    "CLAUDE.md",
 ]
 
 # v2.x upgrade, root lane: never touched by the upgrader at all.
@@ -2058,7 +2069,8 @@ _V2_MAP = [
     ("UDO Project/TOPICS.md", "project/TOPICS.md"),
     ("UDO Project/HARD_STOPS.md", "project/HARD_STOPS.md"),
     ("UDO Project/NON_GOALS.md", "project/NON_GOALS.md"),
-    ("UDO Project/CLAUDE.md", "project/CLAUDE.md"),
+    ("CLAUDE.md", "project/CLAUDE.md"),
+    ("UDO Project/CLAUDE.md", "project/CLAUDE-in-UDO-Project.md"),
     ("UDO Project/.claude", "project/claude"),
     # The enforcement hook is carried, not excluded: installs customize it.
     # Market Researcher's was hand-patched to read both state schemas, and
@@ -2450,11 +2462,17 @@ def export_bundle(target, bundle_path=None, install_root=None, layout=None, raw=
             unclassified.append(rel)
             counts["unclassified"] += 1
         else:
+            # Several source folders deliberately merge into one bundle folder:
+            # ".checkpoints" and ".project-catalog/checkpoints" both carry
+            # checkpoints, "communications" carries handoffs. Same-named files
+            # from two of them would otherwise overwrite each other here,
+            # silently, and the manifest would still verify, because it checks
+            # what was written rather than what was meant to be.
+            dest, renamed = _sanitize_relpath(dest, taken)
             for cls in RECORD_CLASSES:
                 if dest.startswith(f"records/{cls}"):
                     counts[cls] += 1
                     break
-            renamed = False
 
         out = bundle / dest
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -2661,6 +2679,30 @@ def _warn_if_script_is_stale(source_version, source_arg):
     print("")
 
 
+def _print_next_steps(target):
+    """Say where to open the session, because getting that wrong is quiet.
+
+    Observed in the field: an install went into a subfolder and the session was
+    opened one level above it. Nothing failed loudly. The protocol's relative
+    paths did not resolve, and `.claude/settings.json` was never read at all
+    because it was not at the session's project root, so the enforcement hooks
+    silently did not run. The session had to be told by hand to read
+    START_HERE, which is the one thing a shipped CLAUDE.md makes automatic."""
+    print("")
+    print("Next steps")
+    print("  1. Open your AI session with this folder as the working directory:")
+    print(f"       {target}")
+    print("     Not the folder above it. The protocol's paths are relative, and the")
+    print("     hooks in .claude/settings.json only load when this folder is the")
+    print("     session's project root. Opening elsewhere disables them silently.")
+    print("  2. CLAUDE.md here is read automatically and carries the boot sequence,")
+    print("     so you should not have to tell the session what to read.")
+    if not (target / ".git").is_dir():
+        print("  3. This folder is not a git repository, so the session logs, decisions")
+        print("     and transcripts the protocol writes are not version controlled.")
+        print("     Run `git init` here if you want that history recoverable.")
+
+
 def _failure_guidance(progress, backup_dir):
     """Restore guidance for a failure, tailored to how far apply actually
     got (tracked via `progress`, a simple {"lane": ..., "phase": ...} dict
@@ -2804,6 +2846,7 @@ def main(argv=None):
         print(f"Upgrade to {source_version} complete (mode: {mode}).")
         print(f"Decision record: {record_path}")
         print(f"Backup: {backup_dir}")
+        _print_next_steps(target)
         return 0
 
     except UpgradeError as exc:

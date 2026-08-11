@@ -1,6 +1,6 @@
 # UDO: Universal Dynamic Orchestrator
 
-**Current version: 2.3.3**
+**Current version: 2.4.0**
 
 **Multi-LLM Safe Session Orchestration Framework**
 
@@ -142,6 +142,7 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 
 | Version | Release | Major Features |
 |---------|---------|---|
+| v2.4.0  | 2026-08-11 | Ships a CLAUDE.md so a fresh install boots the protocol on its own, and says where to open the session |
 | v2.3.3  | 2026-08-11 | The upgrader says so when it is older than the release it is installing |
 | v2.3.2  | 2026-08-11 | Version stamp reaches the migrate lanes too |
 | v2.3.1  | 2026-08-11 | Installed state reports the version it was actually installed or upgraded to |
@@ -158,6 +159,15 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 The legacy v4.x series (v4.9, v4.10, and earlier) was superseded by the v2.0 rewrite above; it is not compatible with this repository and is not maintained.
 
 ## Changelog
+
+### v2.4.0 (2026-08-11)
+
+Found by installing 2.3.3 into a new folder and watching a real session try to onboard.
+
+- **Ships `CLAUDE.md`.** Claude Code reads it automatically, so a fresh install now boots the protocol without anyone having to say "read START_HERE". Every existing project had hand-written its own; the distribution never shipped one. Added on fresh installs and add-if-absent on upgrades, so a project's own CLAUDE.md is never overwritten
+- The shipped `CLAUDE.md` opens by checking the working directory, because the failure it exists to catch is silent: if the install sits one level down, the protocol's relative paths do not resolve AND `.claude/settings.json` is never read, so the enforcement hooks do not run at all. Prefixing paths does not fix the hooks, so it says to reopen the session instead
+- A successful install now prints where to open the session, and notes when the folder is not a git repository, since the protocol writes history that would not be version controlled
+- Export: source folders that deliberately merge into one bundle folder (`.checkpoints` and `.project-catalog/checkpoints`, `communications` into handoffs) could silently overwrite same-named files. Now suffixed and recorded, like every other rename
 
 ### v2.3.3 (2026-08-11)
 

@@ -249,9 +249,24 @@ def run_all(tmp):
         for entry in manifest["inventory"]:
             if entry.get("bundle_path"):
                 assert (bundle / entry["bundle_path"]).is_file(), entry
-        unclassified = [e for e in manifest["inventory"] if e["disposition"] == "unclassified"]
-        assert len({e["bundle_path"] for e in unclassified}) == len(unclassified), (
-            "two unclassified files were written to the same bundle path")
+        written = [e for e in manifest["inventory"] if e.get("bundle_path")]
+        assert len({e["bundle_path"] for e in written}) == len(written), (
+            "two files were written to the same bundle path")
+
+    def t_merged_record_folders_do_not_collide():
+        """Several source folders merge into one bundle folder by design
+        (.checkpoints and .project-catalog/checkpoints both carry checkpoints).
+        Same-named files from two of them must not overwrite each other."""
+        d = build_v2(case("merge") / "proj")
+        write(d / "UDO Project" / ".checkpoints" / "same-name.md", "from dot-checkpoints\n")
+        write(d / "UDO Project" / ".project-catalog" / "checkpoints" / "same-name.md",
+              "from catalog checkpoints\n")
+        bundle, manifest, _u = U.export_bundle(d, bundle_path=str(tmp / "merge-bundle"))
+        written = [e for e in manifest["inventory"] if e.get("bundle_path")]
+        paths = [e["bundle_path"] for e in written]
+        assert len(set(paths)) == len(paths), f"collision: {sorted(paths)}"
+        bodies = {(bundle / p).read_text() for p in paths if p.startswith("records/checkpoints")}
+        assert bodies == {"from dot-checkpoints\n", "from catalog checkpoints\n"}, bodies
 
     def t_refuses_to_overwrite_a_bundle():
         d = build_v2(case("overwrite") / "proj")
@@ -313,6 +328,7 @@ def run_all(tmp):
         t_v21_flat_state_is_wrapped,
         t_raw_on_unknown_shape, t_raw_needs_no_detection, t_ambiguity_points_at_raw,
         t_manifest_accounts_for_every_file, t_windows_hostile_paths,
+        t_merged_record_folders_do_not_collide,
         t_refuses_to_overwrite_a_bundle, t_notes_lists_every_unclassified_item,
         t_restore_round_trip, t_restore_refuses_a_foreign_directory,
     ]:
