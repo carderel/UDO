@@ -1481,6 +1481,10 @@ def apply(manifest, lane_mode, target, source):
         _apply_migrate_root(manifest, target, source)
     else:
         raise UpgradeError(f"unknown lane mode: {lane_mode}")
+    # Every lane, not just fresh: transform_state carries the installed value
+    # forward, so an upgraded project kept claiming whatever version it was
+    # first installed at.
+    _stamp_udo_version(target, source)
 
 
 def _apply_fresh(manifest, target, source):
@@ -1495,6 +1499,28 @@ def _apply_fresh(manifest, target, source):
             _apply_transform(relpath, target, source)
         else:
             raise UpgradeError(f"unexpected action in fresh manifest: {action} {relpath}")
+
+
+def _stamp_udo_version(target, source):
+    """Set `udo_version` in the installed state from the source VERSION.
+
+    The shipped PROJECT_STATE.json carries a literal, so every release that
+    forgot to hand-edit it installed a project claiming an older version than
+    the framework beside it. That mismatch has already cost a real project a
+    decision record to resolve. Stamping it at install time means it cannot go
+    stale again."""
+    version = read_source_version(source)
+    if not version:
+        return
+    state_path = target / "UDO Project" / "PROJECT_STATE.json"
+    obj = load_json(state_path)
+    if not isinstance(obj, dict):
+        return
+    state = obj.get("project_state")
+    if not isinstance(state, dict) or state.get("udo_version") == version:
+        return
+    state["udo_version"] = version
+    write_json(state_path, obj)
 
 
 def _apply_upgrade(manifest, target, source):
