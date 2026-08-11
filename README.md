@@ -1,6 +1,6 @@
 # UDO: Universal Dynamic Orchestrator
 
-**Current version: 2.3.1**
+**Current version: 2.3.2**
 
 **Multi-LLM Safe Session Orchestration Framework**
 
@@ -135,6 +135,7 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 
 | Version | Release | Major Features |
 |---------|---------|---|
+| v2.3.2  | 2026-08-11 | Version stamp reaches the migrate lanes too |
 | v2.3.1  | 2026-08-11 | Installed state reports the version it was actually installed or upgraded to |
 | v2.3.0  | 2026-08-10 | Handoff bundles: export an install to a verifiable bundle, and restore a target from a backup |
 | v2.2.8  | 2026-08-09 | Legacy migration folder is no longer mistaken for a nested install |
@@ -149,6 +150,10 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 The legacy v4.x series (v4.9, v4.10, and earlier) was superseded by the v2.0 rewrite above; it is not compatible with this repository and is not maintained.
 
 ## Changelog
+
+### v2.3.2 (2026-08-11)
+
+- The v2.3.1 version stamp only reached `fresh` and `upgrade`. `main()` dispatches the two migrate lanes straight to their own apply functions, bypassing `apply()` where the stamp lived, so a migrated project still reported the wrong version. Now stamped on all four lanes and verified against a real v4-at-root and a real v4-in-`UDO/` shape
 
 ### v2.3.1 (2026-08-11)
 

@@ -2726,8 +2726,13 @@ def main(argv=None):
         legacy_dir_name = LEGACY_DIR_NAME
         if lane_mode == "migrate":
             unmapped_by_lane, legacy_dir_name = _apply_migrate(manifest, target, source)
+            # These two lanes bypass apply(), so they need the version stamp
+            # applied here. Missing this is why the first attempt at the fix
+            # covered only fresh and upgrade.
+            _stamp_udo_version(target, source)
         elif lane_mode == "migrate-root":
             unmapped_by_lane, legacy_dir_name = _apply_migrate_root(manifest, target, source, progress)
+            _stamp_udo_version(target, source)
         else:
             apply(manifest, lane_mode, target, source)
             unmapped_by_lane = {}
