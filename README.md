@@ -1,6 +1,6 @@
 # UDO: Universal Dynamic Orchestrator
 
-**Current version: 2.4.0**
+**Current version: 2.4.1**
 
 **Multi-LLM Safe Session Orchestration Framework**
 
@@ -142,6 +142,7 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 
 | Version | Release | Major Features |
 |---------|---------|---|
+| v2.4.1  | 2026-08-11 | Bootstrap is LLM-agnostic (AGENTS.md canonical); transcript rule moved to step 1; PROJECT_META version stamped |
 | v2.4.0  | 2026-08-11 | Ships a CLAUDE.md so a fresh install boots the protocol on its own, and says where to open the session |
 | v2.3.3  | 2026-08-11 | The upgrader says so when it is older than the release it is installing |
 | v2.3.2  | 2026-08-11 | Version stamp reaches the migrate lanes too |
@@ -159,6 +160,14 @@ See `/UDO Framework/ORCHESTRATOR.md` "Concurrent AI Safety" section for details.
 The legacy v4.x series (v4.9, v4.10, and earlier) was superseded by the v2.0 rewrite above; it is not compatible with this repository and is not maintained.
 
 ## Changelog
+
+### v2.4.1 (2026-08-11)
+
+All three items came from a real onboarding session's orientation report.
+
+- **The bootstrap file is no longer named for one vendor.** v2.4.0 shipped a `CLAUDE.md`, which baked in one harness and contradicted the point of an LLM-agnostic framework: switch to Gemini and there is no `GEMINI.md`. `AGENTS.md` now holds the canonical boot sequence, with `CLAUDE.md` and `GEMINI.md` as one-line pointers to it. A harness whose filename is not covered creates its own pointer during initialization, per AGENTS.md step 1. All are add-if-absent, so a hand-written bootstrap is never overwritten
+- **Transcript creation is now step 1, before the reading list.** HS-UDO-013 requires a transcript before the first response, but the rule lived in a compliance checklist part-way through `UDO Framework/START_HERE.md`, so it could only be discovered by reading, which takes responses, which means it was already broken by the time anyone learned it existed. A session reported exactly that violation and was correct. Fixed in both AGENTS.md and START_HERE.md
+- **`PROJECT_META.json` version fields are stamped at install time.** v2.3.1 fixed this for `PROJECT_STATE.json` and missed the file next to it, so an install could report framework 2.3.1, state 2.2 and metadata 2.0 simultaneously. Both files are now stamped on every lane, and the shipped metadata no longer hardcodes a version or a creation date
 
 ### v2.4.0 (2026-08-11)
 

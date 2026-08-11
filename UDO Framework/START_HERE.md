@@ -1,5 +1,19 @@
 # 🚀 New AI? Start Here.
 
+## Do this before reading any further
+
+Create the session transcript now:
+
+`UDO Project/.project-catalog/history/YYYY-MM-DD-HHMM-session-transcript.md`
+
+Append to it after every response. This is **HS-UDO-013**, and it applies from your first response, not from the point where you finish onboarding.
+
+It is stated here, at the top, because it used to appear only in the compliance checklist further down this file. That made it a rule you could not learn without reading, and could not obey by the time you had read it. A session reported exactly that: it had violated HS-UDO-013 on its first two responses because the rule lived inside the files it was reading for the first time. It was right, and the fix was the ordering, not the session.
+
+If you arrived here from `AGENTS.md` you have already done this. Carry on.
+
+---
+
 ## Framework vs Project Structure in v2.0
 
 **New in v2.0:** UDO is now split into two separate folder hierarchies for multi-LLM safety.

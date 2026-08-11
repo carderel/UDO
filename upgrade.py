@@ -52,7 +52,7 @@ DEFAULT_SOURCE_URL = "https://github.com/carderel/UDO/archive/refs/heads/main.zi
 # invisible: the run reports the new version, installs new files, and silently
 # skips whatever the newer script would have done. Comparing this constant
 # against the source version turns that into a warning.
-SCRIPT_VERSION = "2.4.0"
+SCRIPT_VERSION = "2.4.1"
 
 # ---------------------------------------------------------------------------
 # Constants: lane membership. These lists are the single source of truth for
@@ -87,12 +87,20 @@ FRESH_TOP_LEVEL = [
     "validate.py",
     "cleanup-misinstall.py",
     ".claude",
-    # Claude Code reads CLAUDE.md automatically, so shipping one is what makes
-    # a fresh install boot the protocol without the user having to say "read
-    # START_HERE". Note this does not contradict the migrate-root comment
-    # below: an existing CLAUDE.md is still the user's own file and is never
-    # moved or overwritten. This only puts one there when there is none.
+    # Harnesses auto-read a bootstrap file, which is what lets a fresh install
+    # boot the protocol without the user having to say "read START_HERE".
+    # AGENTS.md holds the actual content; CLAUDE.md and GEMINI.md are one-line
+    # pointers to it, because naming the canonical document after one vendor
+    # would contradict the point of an LLM-agnostic framework. A harness whose
+    # filename is not covered gets a pointer created during initialization,
+    # per AGENTS.md step 1.
+    #
+    # This does not contradict the migrate-root comment below: an existing
+    # bootstrap file is the user's own and is never moved or overwritten. These
+    # are only placed when absent.
+    "AGENTS.md",
     "CLAUDE.md",
+    "GEMINI.md",
     "README.md",
     "START_HERE.md",
     "LICENSE",
@@ -122,11 +130,13 @@ ROOT_LANE_REPLACE = [
 # user's own hook configuration in .claude/settings.json is never clobbered.
 ROOT_LANE_ADD_IF_ABSENT = [
     ".claude/settings.json",
-    # ADD only, never REPLACE. Existing projects hand-wrote their own CLAUDE.md
-    # long before the distribution shipped one, and theirs names the real
-    # layout of that specific install. Overwriting it would break exactly the
-    # projects that had solved this problem for themselves.
+    # ADD only, never REPLACE. Existing projects hand-wrote their own bootstrap
+    # file long before the distribution shipped one, and theirs names the real
+    # layout of that specific install. Overwriting them would break exactly the
+    # projects that had already solved this for themselves.
+    "AGENTS.md",
     "CLAUDE.md",
+    "GEMINI.md",
 ]
 
 # v2.x upgrade, root lane: never touched by the upgrader at all.
@@ -1528,25 +1538,41 @@ def _apply_fresh(manifest, target, source):
 
 
 def _stamp_udo_version(target, source):
-    """Set `udo_version` in the installed state from the source VERSION.
+    """Set the version fields in the installed project files from the source
+    VERSION.
 
-    The shipped PROJECT_STATE.json carries a literal, so every release that
-    forgot to hand-edit it installed a project claiming an older version than
-    the framework beside it. That mismatch has already cost a real project a
-    decision record to resolve. Stamping it at install time means it cannot go
-    stale again."""
+    Both PROJECT_STATE.json and PROJECT_META.json shipped these as literals
+    that nothing updated, so every release installed a project claiming an
+    older version than the framework sitting beside it. PROJECT_STATE said 2.2
+    and PROJECT_META said 2.0 while the framework said 2.3.1, all in the same
+    install. That mismatch has already cost one real project a decision record
+    to resolve, and an orientation report caught the second file still doing it
+    after the first was fixed. Stamping at install time means neither can go
+    stale by anyone forgetting to hand-edit JSON at release."""
     version = read_source_version(source)
     if not version:
         return
+
     state_path = target / "UDO Project" / "PROJECT_STATE.json"
     obj = load_json(state_path)
-    if not isinstance(obj, dict):
-        return
-    state = obj.get("project_state")
-    if not isinstance(state, dict) or state.get("udo_version") == version:
-        return
-    state["udo_version"] = version
-    write_json(state_path, obj)
+    if isinstance(obj, dict):
+        state = obj.get("project_state")
+        if isinstance(state, dict) and state.get("udo_version") != version:
+            state["udo_version"] = version
+            write_json(state_path, obj)
+
+    meta_path = target / "UDO Project" / "PROJECT_META.json"
+    meta = load_json(meta_path)
+    if isinstance(meta, dict):
+        metadata = meta.get("project_metadata")
+        if isinstance(metadata, dict):
+            changed = False
+            for key in ("udo_version", "framework_version"):
+                if metadata.get(key) != version:
+                    metadata[key] = version
+                    changed = True
+            if changed:
+                write_json(meta_path, meta)
 
 
 def _apply_upgrade(manifest, target, source):
@@ -2069,7 +2095,9 @@ _V2_MAP = [
     ("UDO Project/TOPICS.md", "project/TOPICS.md"),
     ("UDO Project/HARD_STOPS.md", "project/HARD_STOPS.md"),
     ("UDO Project/NON_GOALS.md", "project/NON_GOALS.md"),
+    ("AGENTS.md", "project/AGENTS.md"),
     ("CLAUDE.md", "project/CLAUDE.md"),
+    ("GEMINI.md", "project/GEMINI.md"),
     ("UDO Project/CLAUDE.md", "project/CLAUDE-in-UDO-Project.md"),
     ("UDO Project/.claude", "project/claude"),
     # The enforcement hook is carried, not excluded: installs customize it.
@@ -2695,8 +2723,9 @@ def _print_next_steps(target):
     print("     Not the folder above it. The protocol's paths are relative, and the")
     print("     hooks in .claude/settings.json only load when this folder is the")
     print("     session's project root. Opening elsewhere disables them silently.")
-    print("  2. CLAUDE.md here is read automatically and carries the boot sequence,")
-    print("     so you should not have to tell the session what to read.")
+    print("  2. AGENTS.md here carries the boot sequence, and CLAUDE.md / GEMINI.md")
+    print("     point at it, so whichever tool you use should boot on its own without")
+    print("     being told what to read.")
     if not (target / ".git").is_dir():
         print("  3. This folder is not a git repository, so the session logs, decisions")
         print("     and transcripts the protocol writes are not version controlled.")
